@@ -33,14 +33,14 @@ const TEX = 800; // cover texture side; the covers are 800×800
 // so the timing is the same every spin, but for the third reel's anticipation (below); the randomness
 // is in which games sit on the belt.
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TRAVEL = [12, 21, 30]; // every one lands LAND slots ahead of the cover it started on
+const TRAVEL = [30, 39, 48]; // every one lands LAND slots ahead of the cover it started on
 const LAND = 3;
 const STAGGER = 0.08;
 const T_WIND = 0.2;
 const T_ACCEL = 0.3;
 const T_DECEL = 0.26;
 const T_SETTLE = 0.7;
-const SPEED = (9 * PITCH) / 0.55; // a reel stops 0.55 s after the one before it
+const SPEED = (9 * PITCH) / 0.53; // a reel stops 0.53 s after the one before it
 const WIND = calm ? 0 : 0.1 * PITCH; // pull back before the launch
 const OVERSHOOT = calm ? 0 : 0.11 * PITCH; // run past the stop, then spring back
 const SPRING_W = 2 * Math.PI * 3.1;
