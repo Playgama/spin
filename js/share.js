@@ -18,7 +18,7 @@ async function start() {
   const post = [
     `I just sent +${players} players to ${game.title} on the Playgama Boost slot machine 🎰`,
     "Why? Because I'm nice. And so is Playgama.",
-    `Play it: ${link}`,
+    link,
   ].join('\n');
 
   $('cover').src = `assets/covers/${game.file}`;
