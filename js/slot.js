@@ -394,8 +394,10 @@ let frame = 0;
 let lastFrame = 0;
 let stepping = false; // test hook: the clock is driven by hand
 
-function deal(count) {
-  if (deck.length < count) deck = shuffle([...covers.keys()]);
+// `skip`: a game already on this spin (its winner), not to be dealt twice.
+function deal(count, skip = -1) {
+  deck = deck.filter((game) => game !== skip);
+  if (deck.length < count) deck = shuffle([...covers.keys()].filter((game) => game !== skip));
   return deck.splice(0, count);
 }
 
@@ -452,19 +454,71 @@ async function paint(places) {
 // droughts and no runs; and two wins never come one right after the other.
 const BAG = { jackpot: 1, pair: 3, none: 8 };
 const PAIRS = [[0, 0, 1], [1, 0, 0], [0, 1, 0]]; // which two reels match, with one of the six games each
-let bag = [];
-let lastWon = false;
+const PRIZE_OF = { jackpot: 100, pair: 50 };
+
+// No game gets more than CAP players. So that every game reaches it exactly, each one has a plan of
+// prizes from the start: 60% of the games get +100 and +50, the others +50 three times. With one
+// jackpot to three pairs in the bag that uses every prize: 100 games × 150 players = 15,000 players,
+// given out in 60 bags = 720 spins. After that a spin gives nothing.
+// The plan, the players given so far and the bag are kept in the browser, so a reload of the page
+// does not start them over. Open the page with ?reset to start over (before the event, say).
+const CAP = 150;
+const STORE = 'boost-slot';
+let ledger = null; // { games, plan: { id: [prizes still to come] }, given: { id: players }, bag, lastWon, lastGame }
+
+function keep() {
+  try { localStorage.setItem(STORE, JSON.stringify(ledger)); } catch { /* private mode: it lasts until a reload */ }
+}
+
+function openLedger() {
+  const games = covers.map((cover) => cover.id).join(' ');
+  try {
+    if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(STORE);
+    const saved = JSON.parse(localStorage.getItem(STORE));
+    if (saved?.games === games) ledger = saved; // a different set of games starts over
+  } catch { /* no storage: start over */ }
+  if (ledger) return;
+  // n games get +100 +50 and the other N − n get +50 three times: n jackpots and 3N − 2n pairs, one to three when n = 0.6 N.
+  const big = Math.round(covers.length * 0.6);
+  const plan = {};
+  shuffle(covers.map((cover) => cover.id)).forEach((id, i) => { plan[id] = i < big ? [100, 50] : [50, 50, 50]; });
+  ledger = { games, plan, given: {}, bag: [], lastWon: false, lastGame: '' };
+  keep();
+}
 
 function draw() {
   const win = (outcome) => outcome !== 'none';
-  while (!bag.length) {
+  while (!ledger.bag.length) {
     const deck = shuffle(Object.entries(BAG).flatMap(([outcome, count]) => Array(count).fill(outcome)));
     // Drawn from the end: no two wins side by side, nor a win first after a win.
-    if (deck.every((outcome, i) => !(win(outcome) && win(deck[i + 1] ?? 'none'))) && !(lastWon && win(deck.at(-1)))) bag = deck;
+    if (deck.every((outcome, i) => !(win(outcome) && win(deck[i + 1] ?? 'none'))) && !(ledger.lastWon && win(deck.at(-1)))) ledger.bag = deck;
   }
-  const outcome = bag.pop();
-  lastWon = win(outcome);
+  const outcome = ledger.bag.pop();
+  ledger.lastWon = win(outcome);
+  keep();
   return outcome;
+}
+
+// Which game a win goes to: one whose plan still has that prize, not the last winner if another can
+// take it. A jackpot no game can take becomes a pair; a pair no game can take, nothing.
+function award(outcome) {
+  for (const take of outcome === 'jackpot' ? ['jackpot', 'pair'] : outcome === 'pair' ? ['pair'] : []) {
+    const can = covers.flatMap((cover, game) => (ledger.plan[cover.id].includes(PRIZE_OF[take]) ? [game] : []));
+    const fresh = can.filter((game) => covers[game].id !== ledger.lastGame);
+    const pool = fresh.length ? fresh : can;
+    if (pool.length) return { outcome: take, game: pool[Math.floor(Math.random() * pool.length)] };
+  }
+  return { outcome: 'none', game: -1 };
+}
+
+// A win is given when it is shown.
+function credit(game, prize) {
+  const id = covers[game].id;
+  const plan = ledger.plan[id];
+  plan.splice(plan.indexOf(prize), 1);
+  ledger.given[id] = (ledger.given[id] || 0) + prize;
+  ledger.lastGame = id;
+  keep();
 }
 
 // Pick the six games of the coming spin and where each reel will stop, then put them on the belts.
@@ -472,8 +526,9 @@ function draw() {
 // The three covers on show stay; the six slots behind the drum get the new games.
 async function prepare(force) {
   ready = false;
-  const outcome = force || draw();
-  const six = deal(GAMES_PER_SPIN);
+  const { outcome, game } = award(force || draw());
+  // The winner comes first among the six: every pattern stops its matching reels on six[0].
+  const six = game < 0 ? deal(GAMES_PER_SPIN) : [game, ...deal(GAMES_PER_SPIN - 1, game)];
   const pattern = outcome === 'pair' && !force ? PAIRS[Math.floor(Math.random() * PAIRS.length)] : FORCE[outcome];
   const targets = pattern.map((n) => six[n]);
   const places = new Map(six.map((game) => [game, []]));
@@ -491,7 +546,7 @@ async function prepare(force) {
   } catch {
     // A cover did not load or decode: deal other games instead of leaving the machine stuck.
     await new Promise((done) => setTimeout(done, 1000));
-    return prepare(outcome); // the same outcome, on other games
+    return prepare(outcome); // the same outcome, on other games (for a win, maybe another game too)
   }
   next = { targets };
   ready = true;
@@ -947,6 +1002,7 @@ function reveal(now, late) {
     sayTimer = setTimeout(invite, SAY_NONE * 1000);
     return;
   }
+  credit(result.game, result.prize);
   const jackpot = result.prize === 100;
   const span = calm ? 0 : COUNT[result.prize];
   score();
@@ -1101,6 +1157,7 @@ async function start() {
   document.fonts.load('400 156px CalSans').catch(() => {});
   // Never a remembered copy of the list: after the set of games changes, an old list names files that are gone.
   covers = await (await fetch('assets/covers/covers.json', { cache: 'no-cache' })).json();
+  openLedger();
   const places = new Map();
   reels.forEach((reel, r) => {
     deal(3).forEach((game, slot) => {
@@ -1129,6 +1186,7 @@ window.__slot = {
       titles: reels.map((reel) => covers[reel.games[reel.center]]?.title),
       words: [prizeEl.textContent, noteEl.textContent],
       share: qrEl.classList.contains('is-on') ? shareUrl : '',
+      ledger,
       confetti: confetti.length,
       sparks: sparks.length,
       audio: audio.state,
