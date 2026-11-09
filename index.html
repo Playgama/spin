@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playgama Boost — Slot</title>
+  <link rel="stylesheet" href="shared/css/tokens.css">
+  <link rel="stylesheet" href="shared/css/typography.css">
+  <link rel="stylesheet" href="css/slot.css">
+</head>
+<body>
+  <!-- Figma: Marketing / Confa / TV - 1 (6421:4871), 1920×1080 -->
+  <main class="stage" id="stage">
+    <canvas class="fx" id="rays" width="1920" height="1080" aria-hidden="true"></canvas>
+    <canvas class="reels" id="reels" role="img" aria-label="Slot machine reels" hidden></canvas>
+    <!-- The words under the reels: what to do, what the spin gave, or that it gave nothing. -->
+    <p class="prize" id="prize" aria-live="polite"></p>
+    <p class="note heading-promo-xxl" id="note"></p>
+    <canvas class="fx" id="fx" width="1920" height="1080" aria-hidden="true"></canvas>
+  </main>
+  <!-- Outside the stage: the strip stays 12px from the top of the screen whatever the screen's shape. -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee__track" id="marquee"></div>
+  </div>
+  <!-- A win's QR code. Outside the stage too: always in the bottom right corner of the screen, 12px from its edges. -->
+  <svg class="share" id="qr" role="img" aria-label="QR code of the page that shares your boost" shape-rendering="crispEdges"><path/></svg>
+  <script type="module" src="js/slot.js"></script>
+</body>
+</html>

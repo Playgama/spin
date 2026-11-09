@@ -1,0 +1,183 @@
+/* Playgama Boost slot machine: conference TV screen.
+   Figma: Marketing / Confa / TV - 1 (6421:4871), 1920×1080.
+   Every size below is in the mockup's own pixels: the stage is scaled to fit the screen. */
+
+:root {
+  /* Not a library token: the prize yellow of the mockup (#ffe481). */
+  --slot-yellow: #ffe481;
+  --slot-scale: 1;
+  /* One step of the top strip: BOOST 119.648 + logo 233.751 + two gaps of 7.512. */
+  --marquee-period: 368.423px;
+}
+
+@supports (color: oklch(0% 0 0)) {
+  :root { --slot-yellow: oklch(92.08% 0.1228 94.52); }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-purple-400);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1920px;
+  height: 1080px;
+  /* --shake-* is set from the script for the half second after a jackpot. */
+  transform: translate(calc(-50% + var(--shake-x, 0px)), calc(-50% + var(--shake-y, 0px))) scale(var(--slot-scale));
+}
+
+/* Top strip: an endless "BOOST · playgama" running line, always 12px from the top of the screen.
+   It scales with the stage, so on a 1920×1080 screen it is the mockup's 60px tall. */
+.marquee {
+  position: fixed;
+  left: 0;
+  top: 12px;
+  height: 60px;
+  transform: scale(var(--slot-scale));
+  transform-origin: 0 0;
+}
+
+.marquee__track {
+  display: flex;
+  align-items: center;
+  gap: 7.512px;
+  width: max-content;
+  /* The mockup starts a BOOST at x = -142. */
+  margin-left: -142px;
+  animation: marquee 4.5s linear infinite;
+  will-change: transform;
+}
+
+.marquee__boost,
+.marquee__logo {
+  display: block;
+  flex: none;
+}
+
+.marquee__boost {
+  width: 119.648px;
+  height: 49.662px;
+}
+
+.marquee__logo {
+  width: 233.751px;
+  height: 60px;
+}
+
+@keyframes marquee {
+  to { transform: translateX(calc(-1 * var(--marquee-period))); }
+}
+
+/* Reels are drawn in WebGL; the canvas spans the stage, 400px above and below the reel axis (y = 484). */
+.reels {
+  position: absolute;
+  left: 0;
+  top: 84px;
+  width: 1920px;
+  height: 800px;
+}
+
+.fx {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  pointer-events: none;
+}
+
+/* The line under the reels, in every state: Cal Sans Regular 156/100%, centred on the stage
+   (the mockup's "+100 players": x 530, w 860). White when it invites or reports no match;
+   the prize yellow and the pop are for a win only. */
+.prize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 856px;
+  margin: 0;
+  font: 400 156px/1 var(--font-promo);
+  color: var(--color-white);
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+/* The words fade in and leave at once: a spin clears them without a trail. */
+.prize.is-on,
+.note.is-on,
+.share.is-on {
+  opacity: 1;
+  transition: opacity 0.25s;
+}
+
+.prize.is-win {
+  color: var(--slot-yellow);
+  animation: prize-pop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+.prize.is-jackpot {
+  text-shadow: 0 0 48px var(--slot-yellow);
+  animation:
+    prize-pop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both,
+    prize-beat 0.625s ease-in-out 0.34s 5;
+}
+
+/* The smaller line right under it. */
+.note {
+  position: absolute;
+  left: 88px;
+  right: 88px;
+  top: 1016px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-white);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+/* A win's QR code: always in the bottom right corner of the screen, 12px from its edges, whatever
+   the screen's shape. It scales with the stage, like the strip. Black on white, with the four clear
+   modules a scanner needs around the code drawn into the tile. */
+.share {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: 235px;
+  height: 235px;
+  border-radius: var(--radius-16);
+  background: var(--color-white);
+  fill: var(--color-black);
+  transform: scale(var(--slot-scale));
+  transform-origin: 100% 100%;
+  opacity: 0;
+}
+
+@keyframes prize-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes prize-beat {
+  50% { transform: scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track { animation-play-state: paused; }
+  .prize.is-win,
+  .prize.is-jackpot { animation: none; }
+}

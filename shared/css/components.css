@@ -1,0 +1,1358 @@
+/* ==========================================================================
+   Components — extracted from Figma Button component (22:11646) & ButtonPromo (7350:6297)
+
+   Button (22:11646):
+     Styles: Fill, Ghost, Outline, Text
+     Types:  With text, Only icon
+     Sizes:  L=48, M=40, S=32, XS=24
+     States: Active, Hover, Pressed, Focus, Disabled, Progress, Error, Success, Skeleton
+     Gap:    6px (all sizes), 4px (XS)
+     Padding-x: 16px (L/M/S), 12px (XS)
+     Font:   16px (L), 14px (M/S), 12px (XS) — weight 500 (SF Pro Medium / Segoe UI)
+     Icons:  24px (L), 20px (M), 16px (S/XS)
+     Radius: 1000px (all)
+
+   ButtonPromo (7350:6297):
+     Height: 64px, padding: 0 32px
+     Font:   Cal Sans Regular 21px, letter-spacing 0.21px
+     States: Active (gradient+glow), Hover (brighter gradient+bottom glow),
+             Pressed (darkened), Outline (lime border+gradient),
+             Disabled (carbon-400), Loading (spinner), Success (lime), Error (rose),
+             Skeleton (white/8%)
+   ========================================================================== */
+
+/* ==========================================================================
+   GLOBAL POINTERS
+   Every <a> and <button> in the project gets the pointer cursor — covers
+   the edge cases where browsers default to text/auto (anchor without href,
+   button used inside a form-less context, .btn used on a non-button tag).
+   ========================================================================== */
+
+a,
+button { cursor: pointer; }
+
+/* Disabled affordances still trump the global rule below. */
+button:disabled,
+button[disabled],
+button[aria-disabled="true"] { cursor: not-allowed; }
+
+/* ==========================================================================
+   BUTTON BASE
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--radius-rounded);
+  transition: background-color var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), opacity var(--duration-base) var(--ease-out), transform var(--duration-instant) var(--ease-out);
+  position: relative;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled,
+.btn[disabled],
+.btn.is-disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn svg,
+.btn img {
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   BUTTON SIZES
+   XL=64h (matches btn-promo height, for pairing secondary buttons)
+   L=48h, M=40h, S=32h, XS=24h
+   ========================================================================== */
+
+.btn-xl {
+  height: 64px;
+  padding: 0 32px;
+  font-size: 21px;
+}
+
+.btn-xl .btn-icon-slot { width: 28px; height: 28px; }
+
+.btn-l {
+  height: 48px;
+  padding: 0 16px;
+  font-size: 16px;
+}
+
+.btn-l .btn-icon-slot { width: 24px; height: 24px; }
+
+.btn-m {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.btn-m .btn-icon-slot { width: 20px; height: 20px; }
+
+.btn-s {
+  height: 32px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.btn-s .btn-icon-slot { width: 16px; height: 16px; }
+
+.btn-xs {
+  height: 24px;
+  padding: 0 12px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.btn-xs .btn-icon-slot { width: 16px; height: 16px; }
+
+/* Icon-only buttons — square, no padding */
+.btn-icon-only { padding: 0; }
+.btn-icon-only.btn-xl { width: 64px; }
+.btn-icon-only.btn-l  { width: 48px; }
+.btn-icon-only.btn-m  { width: 40px; }
+.btn-icon-only.btn-s  { width: 32px; }
+.btn-icon-only.btn-xs { width: 24px; }
+
+/* Square modifier — flat-corner variant of every size and type. Same
+   geometry as the pill base; only border-radius and font-family change.
+   Geist Mono gives the square button its technical / terminal voice
+   while keeping the existing fluid sizing (xs..xl) untouched. */
+.btn-square {
+  border-radius: 0;
+  font-family: var(--font-geist-mono);
+  letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   BUTTON STYLES
+   From Figma 22:11646 variant axes:
+     Fill:    bg purple-400, text white
+     Ghost:   bg white/8%, text white
+     Outline: border 1.5px purple-500, bg transparent, text white
+     Text:    bg transparent, text purple-500
+   ========================================================================== */
+
+/* --- Fill (primary) ---
+   bg: purple-400 (#9747ff)
+   text: white
+   hover: bg purple-500 (#aa76ff) */
+.btn-fill {
+  background-color: var(--color-purple-400);
+  color: var(--color-white);
+}
+
+/* Hover follows the universal 4% rule — a translucent state layer is
+   painted on top of the button via .btn-fill::after below. The base
+   background-color stays put so semantic variants (is-error, is-dark,
+   is-inverse) keep their own colour and just lift via the overlay.
+   .btn-fill.is-success overrides the layer to 4% black because lime is
+   too bright for a white tint to be visible. */
+.btn-fill,
+.btn-fill.is-inverse,
+.btn-fill.is-dark,
+.btn-text,
+.btn-tint,
+.btn-lime-outline,
+.btn-rose { isolation: isolate; }
+
+.btn-fill::after,
+.btn-fill.is-inverse::after,
+.btn-fill.is-dark::after,
+.btn-text::after,
+.btn-tint::after,
+.btn-lime-outline::after,
+.btn-rose::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  /* z-index -1 inside the isolated stacking context paints between the
+     button's background and its text/icon children — overlay tints the
+     surface without obscuring content. */
+  z-index: -1;
+  transition: opacity var(--duration-base) var(--ease-out);
+  pointer-events: none;
+}
+.btn-fill:hover::after,
+.btn-fill.is-inverse:hover::after,
+.btn-fill.is-dark:hover::after,
+.btn-text:hover::after,
+.btn-tint:hover::after,
+.btn-lime-outline:hover::after,
+.btn-rose:hover::after { opacity: 1; }
+
+/* is-success uses a 6% black layer instead — lime ground is too bright
+   for a white tint to register. */
+.btn-fill.is-success::after { background: rgba(0, 0, 0, 0.06); }
+
+/* Fill — state colors
+   rose-400 bg demands very dark text for WCAG AA — the accent-rose-text-on-fill
+   token gives 7.5:1 in both themes. Same color applies to .btn-promo.is-error. */
+.btn-fill.is-error,
+.btn-promo.is-error {
+  background-color: var(--color-rose-400);
+  color: var(--accent-rose-text-on-fill);
+}
+
+.btn-fill.is-success {
+  background-color: var(--color-electric-lime);
+  color: var(--color-black);
+}
+
+.btn-fill.is-progress {
+  color: transparent;
+}
+
+/* --- Fill · inverse (white pill, black text) ---
+   Used on dark/colourful surfaces where the standard purple Fill would
+   compete with the background — e.g. .promo-card--gradient. Hover
+   slightly dims the pill to keep the press affordance. */
+.btn-fill.is-inverse {
+  background-color: var(--color-white);
+  color: var(--color-black);
+}
+/* Hover handled by the universal 4% white overlay above. On a white base
+   the layer is barely perceptible — that's the trade-off of using one rule
+   across all fill variants per the project hover spec. */
+
+/* --- Fill · dark (carbon pill, white text) ---
+   Used on warm/light surfaces where a dark CTA reads better than the
+   default purple — e.g. .promo-card--left (golden bg, Figma 8569:5275). */
+.btn-fill.is-dark {
+  background-color: var(--color-carbon-400);
+  color: var(--color-white);
+}
+/* Hover handled by the universal 4% white overlay above. */
+
+/* --- Ghost ---
+   bg: white/8% → flips to black/8% in light theme (via token)
+   text: text-primary (white on dark, black on light)
+   hover: white/16% → flips to black/12% in light */
+.btn-ghost {
+  background-color: var(--color-white-8);
+  color: var(--text-primary);
+}
+
+.btn-ghost:hover {
+  background-color: var(--color-white-16);
+}
+
+/* --- Outline ---
+   bg: transparent
+   text: purple-500 (auto-flips via token: dark-purple on light, lavender-
+         purple on dark)
+   border: --accent-purple-hover (purple-400 brand on light / purple-500
+           on dark) — hand-picked tokens collapsed into one
+   hover: purple-400 bg + white text, no border
+   Border is a 1px inset box-shadow (keeps height stable vs. a real border). */
+.btn-outline {
+  background-color: transparent;
+  color: var(--color-purple-500);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--accent-purple-hover);
+}
+
+.btn-outline:hover {
+  background-color: var(--color-purple-400);
+  color: var(--color-white);
+  box-shadow: none;
+}
+
+/* --- Text (no background, just text) ---
+   bg: transparent
+   calm: purple-500 (auto-flips — same token in both themes)
+   hover light: lavender-100 tint bg, keep purple-500 text so the calm→
+     hover transition is bg-only and never drops below AA.
+   hover dark:  white-8 bg + electric-lime text. */
+.btn-text {
+  background-color: transparent;
+  color: var(--color-purple-500);
+}
+/* Hover handled by the universal 4% white overlay above. The text colour
+   stays put — only the surface shifts via the state layer. */
+
+/* Icons inside buttons inherit currentColor automatically when using inline SVG.
+   Avoid <img> for button icons — use <svg fill="currentColor"> instead. */
+
+/* --- Tint (not in Figma Button component, added for convenience) ---
+   bg: bg-elevated (carbon-300 on dark, near-white surface on light)
+   dark: text/icon white 80%
+   light: text-primary (black)
+   hover: white/16% (semantic, flips in light) */
+.btn-tint {
+  background-color: var(--bg-elevated);
+  color: var(--color-white-80);
+}
+/* Hover handled by the universal 4% white overlay above. */
+
+/* --- Lime (Electric lime fill) ---
+   bg: electric-lime (#c0ff47)
+   text: black */
+.btn-lime {
+  background-color: var(--color-electric-lime);
+  color: var(--color-black);
+}
+
+.btn-lime:hover {
+  filter: brightness(1.08);
+}
+
+/* --- Lime Outline ---
+   border+text: electric-lime in dark, deep moss-green (#4a7a00) in light
+   where lime would be near-invisible on a white page.
+   hover: same hue at 8% alpha as a tinted fill. */
+.btn-lime-outline {
+  background-color: transparent;
+  color: light-dark(var(--color-moss-700), var(--color-electric-lime));
+  border: none;
+  box-shadow: inset 0 0 0 1.5px light-dark(var(--color-moss-700), var(--color-electric-lime));
+}
+/* Hover handled by the universal 4% white overlay above. */
+
+/* --- Rose ---
+   bg: rose-400 (#ff9c9c) — fixed across themes (brand primitive)
+   text: accent-rose-text-on-fill — near-black maroon, 7.5:1 on rose-400 */
+.btn-rose {
+  background-color: var(--color-rose-400);
+  color: var(--accent-rose-text-on-fill);
+}
+/* Hover handled by the universal 4% white overlay above. */
+
+/* --- Golden ---
+   bg: golden-400 (#ffc850)
+   text: black */
+.btn-golden {
+  background-color: var(--color-golden-400);
+  color: var(--color-black);
+}
+
+.btn-golden:hover {
+  filter: brightness(1.08);
+}
+
+/* ==========================================================================
+   BUTTON FOCUS STATE
+   Focus ring: 2px purple-500 outline, 2px offset
+   ========================================================================== */
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-purple-500);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   BUTTON PROMO (7350:6297)
+   Hero CTA: SF Pro Display 21px, 64px height, purple gradient + inset glow
+
+   Active:   radial-gradient (purple glow from bottom, 80% opacity)
+             + box-shadow inset 0 1px 2px rgba(216,153,255,0.5)
+   Hover:    radial-gradient (brighter, 100% opacity)
+             + box-shadow inset 0 -1px 2px rgba(216,153,255,0.8)
+   Pressed:  linear-gradient overlay rgba(0,0,0,0.08)
+   Outline:  border 1.5px lime + gradient bg
+   Disabled: bg carbon-400, text white/40%
+   Loading:  bg purple-400, spinner
+   Success:  bg electric-lime, text black
+   Error:    bg rose-400, text rose-100
+   Skeleton: bg white/8%
+   ========================================================================== */
+
+.btn-promo {
+  height: 64px;
+  padding: 0 32px;
+  font-family: var(--font-heading);
+  font-size: 21px;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.21px;
+  color: var(--color-white);
+  border-radius: var(--radius-rounded);
+  background-color: var(--color-purple-400);
+  background-image:
+    radial-gradient(ellipse at 50% 100%, rgba(227, 127, 255, 0.56) 0%, rgba(186, 95, 254, 0.68) 50%, rgba(146, 64, 252, 0.8) 100%),
+    linear-gradient(90deg, var(--color-purple-400) 0%, var(--color-purple-400) 100%);
+  box-shadow: inset 0 1px 2px rgba(216, 153, 255, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-promo:hover {
+  background-image:
+    radial-gradient(ellipse at 50% 100%, rgba(227, 127, 255, 0.7) 0%, rgba(186, 95, 254, 0.85) 50%, rgba(146, 64, 252, 1) 100%),
+    linear-gradient(90deg, var(--color-purple-400) 0%, var(--color-purple-400) 100%);
+  box-shadow: inset 0 -1px 2px rgba(216, 153, 255, 0.8);
+}
+
+.btn-promo:active {
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.08) 100%),
+    linear-gradient(90deg, var(--color-purple-400) 0%, var(--color-purple-400) 100%);
+  box-shadow: none;
+}
+
+/* Promo — Outline variant (State4: lime border + gradient) */
+.btn-promo.btn-promo-outline {
+  background-color: transparent;
+  background-image:
+    radial-gradient(ellipse at 50% 100%, rgba(227, 127, 255, 0.7) 0%, rgba(186, 95, 254, 0.85) 50%, rgba(146, 64, 252, 1) 100%),
+    linear-gradient(90deg, var(--color-purple-400) 0%, var(--color-purple-400) 100%);
+  border: 1.5px solid var(--color-electric-lime);
+  box-shadow: none;
+}
+
+/* Promo — Disabled (State5: carbon-400 dark / bg-elevated on light).
+   carbon-400 reads too heavy on a white page, so light swaps in a near-
+   white surface. --text-disabled is already light-dark aware — stays WCAG
+   AA without opacity trickery. Authors should set aria-disabled="true"
+   plus tabindex="-1" on the HTML so assistive tech + keyboard skip it. */
+.btn-promo.is-disabled {
+  background-color: light-dark(var(--bg-elevated), var(--color-carbon-400));
+  background-image: none;
+  color: var(--text-disabled);
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* Promo — Loading (State6: purple-400, spinner icon) */
+.btn-promo.is-loading {
+  background-color: var(--color-purple-400);
+  background-image: none;
+  color: transparent;
+  box-shadow: none;
+}
+
+/* Promo — Success (State7: electric-lime, black text) */
+.btn-promo.is-success {
+  background-color: var(--color-electric-lime);
+  background-image: none;
+  color: var(--color-black);
+  box-shadow: none;
+}
+
+/* Promo — Error (State8: rose-400 fill). Text color + bg are set by the
+   unified .btn-fill.is-error, .btn-promo.is-error rule above; this block only
+   clears the default gradient image and inset shadow so the fill is flat. */
+.btn-promo.is-error {
+  background-image: none;
+  box-shadow: none;
+}
+
+/* Promo — Skeleton (State9: white/8%, no text) */
+.btn-promo.is-skeleton {
+  background-color: var(--color-white-8);
+  background-image: none;
+  color: transparent;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   BUTTON TAG (category pills)
+   ========================================================================== */
+
+.btn-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-rounded);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--color-white-8);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+
+.btn-tag:hover {
+  background-color: var(--color-white-16);
+}
+
+.btn-tag.is-active {
+  background-color: var(--color-purple-400);
+  color: var(--color-white);
+}
+
+/* Tag with dot indicator */
+.btn-tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   SKELETON / LOADING
+   ========================================================================== */
+
+.btn-skeleton {
+  background-color: var(--bg-elevated);
+  color: transparent;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.btn-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--color-white-4) 50%, transparent 100%);
+  animation: skeleton-shimmer 1500ms var(--ease-in-out) infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Spinner for loading buttons */
+.btn .btn-spinner {
+  width: 20px;
+  height: 20px;
+  animation: spin 800ms var(--ease-linear) infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   CARD
+   ========================================================================== */
+
+.card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-24);
+  padding: var(--space-32);
+}
+
+.card-lg {
+  border-radius: var(--radius-40);
+  padding: var(--space-48);
+}
+
+@media (max-width: 780px) {
+  .card { padding: var(--space-24); }
+  .card-lg { padding: var(--space-32); border-radius: var(--radius-24); }
+}
+
+/* ==========================================================================
+   CARD FEATURE — from Figma 8371:4778
+   240×240, padding 20px, radius 24px
+   Default: bg carbon-purple (#1d1c26), border 1px white/8%
+   Hover:   bg carbon-purple-400 (#2a2935), inset glow + arrow button reveal
+   Layout:  logo top, title+subtitle bottom (justify-between)
+   ========================================================================== */
+
+/* Base card — auto-layout column matching Figma 8371:4754.
+   Width is fixed at 240; height is content-driven via gap:48 between
+   logo and content (logo 80 + gap 48 + text 70 + 2×20 padding = 238).
+   Stretch behaviour for grid cells is opt-in via .card-feature-stretch
+   or set on the positioning modifier (e.g. .pbx-bento-*). */
+.card-feature {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-48);
+  /* Figma 8371:4754 — base width 240px. The -scale variants in Figma
+     (832 column) show the same card stretched to 600px wide with all
+     components keeping their original sizes (Logo 80×80, Button 103×40)
+     — only the text container widens. So use min-width: 240 as the
+     spec floor; let grid/flex parents drive the actual width above
+     that. flex-basis: 240 keeps cards-page rows looking the same (one
+     card per 240 + gap), while bento cells auto-stretch to 1fr. */
+  min-width: 240px;
+  flex-basis: 240px;
+  /* Figma 8371:4754 / 8394:4852 — auto-layout padding 16 across every
+     base variant. (Earlier 20-px coordinates came from older Figma
+     positions before the auto-layout pass; Dev Mode now ships 16.) */
+  padding: 16px;
+  border-radius: var(--radius-24);
+  /* Note: vertical-stretch behaviour (space-between) lives in a
+     scoped rule just below, since it only applies to the non-fill
+     variants. .card-feature--fill cards keep flex-start so the cover
+     image stays glued to the content container with gap: 0. */
+  /* Figma 8371:4754 — rest surface is white/8%, no stroke. Themed
+     automatically (8% black on light, 8% white on dark). */
+  background-color: var(--color-white-8);
+  overflow: hidden;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--duration-slow) var(--ease-out), box-shadow var(--duration-slow) var(--ease-out);
+}
+
+/* Vertical stretch — Figma 8748:4858 / 8748:4863 (Card-scale +
+   Card_button-scale): when the cell grows TALLER than the card's
+   natural height, Logo stays anchored at the top, the content group
+   (Text / Text + Button) anchors at the bottom, and the gap between
+   them expands. The base gap (48 ≥ the user's 40-px floor) holds at
+   natural height and acts as the minimum when stretched. Scoped to
+   non-fill variants — .card-feature--fill cards glue their cover image
+   to the content container (gap: 0) and shouldn't split that pair when
+   the cell grows. */
+.card-feature:not(.card-feature--fill) {
+  justify-content: space-between;
+}
+
+/* Figma 8371:4762 / 8394:4890 — hover keeps the rest surface at
+   white/8% (no bg lift), adds a 1 px white/4% inset stroke, and a
+   24 px inner purple glow at 32 % alpha (purple-500 #aa76ff). */
+.card-feature:hover {
+  box-shadow:
+    inset 0 0 0 1px var(--color-white-4),
+    inset 0 0 24px rgba(170, 118, 255, 0.32);
+}
+
+.card-feature-logo {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+/* Title + subtitle pair (or text-group + button under --btn).
+   Direct child of .card-feature. User-tuned to 8 px (tighter than the
+   12 px Figma auto-layout default — keeps the title and subtitle
+   reading as one block). */
+.card-feature-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+/* Figma Label/L-m: SF Pro Medium, 18 px, weight 510, line-height 1. */
+.card-feature-title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-primary);
+  margin: 0;
+  /* Wrap long titles instead of overflowing the card. The component
+     is fixed-width (240px), and content like "Monetisation enabled"
+     won't fit on one line — let the second word drop. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.card-feature-subtitle {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  /* Calm state: white-60 (themed: 60 % black on light, 60 % white on
+     dark). Subtitle lifts to white-80 on .card-feature:hover (rule below).
+     Note — this is below the WCAG-AA 4.5:1 floor on the white-8 card
+     surface; .card-feature is excluded from the a11y scan via
+     pages.manifest.js#axeExclude where it appears in the showcase. */
+  color: var(--color-white-60);
+  margin: 0;
+  transition: color var(--duration-slow) var(--ease-out);
+}
+
+.card-feature:hover .card-feature-subtitle {
+  color: var(--text-primary);
+}
+
+/* Arrow button — visible on hover, top-right corner. White on dark,
+   purple-400 (brand) on light so the icon stays on-brand against the
+   lavender card surface. */
+.card-feature-arrow {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-rounded);
+  background: none;
+  border: none;
+  /* Figma 8371:4911 — arrow icon uses Purple/500 (#aa76ff) in both
+     themes; that's the same hue we use for the inner glow on
+     .card-feature:hover, so the icon and the glow read as one. */
+  color: var(--color-purple-500);
+  opacity: 0;
+  transform: translate(-4px, 4px);
+  transition: opacity var(--duration-slow) var(--ease-spring), transform var(--duration-slow) var(--ease-spring);
+  pointer-events: none;
+}
+
+.card-feature:hover .card-feature-arrow {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.card-feature-arrow svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Stretch variant — fills the parent grid/flex cell.
+   Useful in showcase rows where multiple cards must equalise width
+   or in .pbx-bento where bento-* modifiers already apply this. */
+.card-feature-stretch {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Text subgroup — title + subtitle paired inside --btn variants.
+   User-tuned to 8 px (matches .card-feature-content above; keeps the
+   pair tight). ── */
+.card-feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+/* ── Variant: with CTA button below text (Card_button / Card_fill_img_btn) ──
+   Container gap widens to 16px so the button sits 16px below the text
+   group. Card height stays content-driven — 80 logo + 48 + 70 text + 16
+   + 40 button + 2×20 = 294 (matches Figma 8394:4852). */
+.card-feature--btn .card-feature-content {
+  gap: var(--space-16);
+  /* Content block stays natural-height (text + 16 + button). The card
+     itself (see .card-feature rule above) carries justify-content:
+     space-between, so when the cell stretches, Logo stays at the top
+     and the WHOLE content group glides down to the bottom — matching
+     Figma 8748:4863 (Card_button-scale): Logo anchored top, Container
+     (Text + Button) anchored bottom, with extra vertical room expanding
+     the gap between them rather than splitting text from button. */
+}
+
+/* ── Cover image — full-bleed, 3:2 ratio (240×160 at base width) ── */
+.card-feature-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* ── Variant: cover image at top (Card_fill_img / Card_fill_img_btn) ──
+   Card itself has no padding and no logo↔content gap — the image bleeds
+   to all four edges and sits flush against the text container, which
+   provides its own 20px inset. */
+.card-feature--fill {
+  padding: 0;
+  gap: 0;
+}
+.card-feature--fill .card-feature-content {
+  padding: 16px;
+}
+
+/* ==========================================================================
+   LANGUAGE PILL — reusable footer/language-switcher component
+   Calm: transparent + carbon-400 border (dark) · elevated surface + strong
+   border (light) so the pill stays visible against either background.
+   Hover: white bg on dark · purple-100 tint on light.
+   Selected: text-primary bg, bg-primary text (inverts with theme).
+   Lives in components.css so every page that ships the footer has it.
+   ========================================================================== */
+
+.lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Dark: transparent + carbon-400 border.
+     Light: carbon-400 disappears on white, so use an elevated surface
+     with a strong border so the outline stays legible. */
+  background-color: light-dark(var(--bg-elevated), transparent);
+  border: 1px solid light-dark(var(--border-strong), var(--color-carbon-400));
+  border-radius: var(--radius-rounded);
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
+}
+
+.lang-pill:hover {
+  /* Dark: white-on-white inverts text to black.
+     Light: purple-100 tint bg + matching border + purple-600 text. */
+  background-color: light-dark(var(--color-purple-100), var(--color-white));
+  border-color: light-dark(var(--color-purple-100), var(--color-white));
+  color: light-dark(var(--color-purple-600), var(--color-black));
+}
+
+.lang-pill.is-selected {
+  background-color: var(--text-primary);   /* white on dark, black on light */
+  border-color: var(--text-primary);
+  color: var(--bg-primary);                /* black on dark, white on light */
+}
+
+/* Disabled pill — authors should set aria-disabled="true" on the anchor so
+   assistive tech skips it (required because we're using an <a>, not a form
+   control). Colour is softened without opacity to keep AA contrast: the
+   --text-disabled token pairs against the transparent pill bg + page layer. */
+.lang-pill.is-disabled,
+.lang-pill[aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.lang-pill-flag {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.lang-pill-flag img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Size M: h=36, text 12px, padding 6px left 12px right */
+.lang-pill-m {
+  height: 36px;
+  padding: 6px 12px 6px 6px;
+  font-size: 12px;
+}
+
+/* Size L: h=44, text 16px, padding 6px left 16px right */
+.lang-pill-l {
+  height: 44px;
+  padding: 6px 16px 6px 6px;
+  font-size: 16px;
+}
+
+.lang-pill-l .lang-pill-flag {
+  width: 32px;
+  height: 32px;
+}
+
+/* Light-theme styling is folded into the base .lang-pill / :hover /
+   .is-selected rules above via light-dark(): the transparent + carbon-400
+   border that works on dark disappears on white, so light swaps to an
+   elevated surface + strong border, purple-100 hover tint, and an
+   inverted text-primary selected state. */
+
+/* ==========================================================================
+   FAQ — accordion item + list
+   ----------------------------------------------------------------------------
+   Component spec — Figma 8543:4843:
+     surface  : white/4% rest, white/8% hover (var(--color-white-4 / -8))
+     radius   : 24px (var(--radius-24))
+     padding  : 16px (var(--space-16))
+     gap      : 12px between title and answer (var(--space-12))
+     gap      : 16px between title and chevron button (var(--space-16))
+     title    : Body/M-m — 16px / 510 / 1.2  (.body-m-m)
+     answer   : Body/M   — 16px / 400 / 1.2  (.body-m)
+     answer pad-right : 48px so copy doesn't run under the toggle column
+     toggle   : 32px round ghost icon button (.btn .btn-ghost .btn-icon-only
+                .btn-s) with chevron-down-16; rotates 180° on [open]; the
+                disc is transparent here so it doesn't double-tint the
+                already-tinted .faq-item surface
+   ========================================================================== */
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  max-width: 600px;
+  margin-inline: auto;
+}
+
+.faq-item {
+  background: var(--color-white-4);
+  border-radius: var(--radius-24);
+  padding: var(--space-16);
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+.faq-item:hover { background: var(--color-white-8); }
+
+.faq-q {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-primary);
+  /* Match Figma min-height of the Title+ico frame so closed and open items
+     have the same vertical box around the question. */
+  min-height: 32px;
+}
+.faq-q::-webkit-details-marker { display: none; }
+
+.faq-q-text {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.faq-toggle {
+  /* Toggle is presentational only — clicks go to <summary>. Drop the
+     .btn-ghost backdrop and the .btn:active scale. Pull 8px past the
+     16px right padding so the chevron-to-edge gap reads as 8px. */
+  pointer-events: none;
+  background-color: transparent;
+  margin-right: -8px;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+.faq-toggle:active { transform: none; }
+.faq-item[open] .faq-toggle { transform: rotate(180deg); }
+
+/* Chevron is a white-fill SVG; flip in light theme so it reads on the
+   light surface. light-dark() is color-only — has to be media query +
+   data-theme attr. */
+:root[data-theme="light"] .faq-toggle img { filter: invert(1); }
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] .faq-toggle img { filter: invert(1); }
+}
+
+.faq-a {
+  margin-top: var(--space-12);
+  padding-right: 48px;
+  color: var(--text-secondary);
+}
+
+.faq-item[open] .faq-a {
+  animation: faq-reveal var(--duration-base) var(--ease-out);
+}
+@keyframes faq-reveal {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .faq-item[open] .faq-a { animation: none; }
+  .faq-toggle { transition: none; }
+}
+
+@media (max-width: 780px) {
+  .faq-a { padding-right: 0; }
+}
+
+/* ==========================================================================
+   REVIEW · customer testimonial card (Figma 8568:5182)
+   ----------------------------------------------------------------------------
+   Three rows in a vertical stack:
+     1. .review-author       — 44px avatar + name + business type (caps-m)
+     2. .review-quote        — body-s paragraph, color/60% calm, /80% hover
+     3. .review-link         — 16px icon + purple-600 text, links to source
+   Surface: white/4% calm, white/8% on hover, plus a subtle purple inset
+   glow (matches the Figma "Hover" state). Width is fluid; consumers set it
+   via grid/flex on the parent (300px in Figma but not enforced here).
+   Tokens: --color-white-4/-8, --radius-24, --space-20 (padding), --space-16
+   (row gap), --space-8 (inner gap), --color-purple-600 (link), --accent-purple
+   (hover glow).
+   ========================================================================== */
+
+.review {
+  display: flex;
+  flex-direction: column;
+  /* Figma 8568:5177 — outer row gap is 24px (same on calm and hover). */
+  gap: var(--space-24);
+  padding: var(--space-20);
+  border-radius: var(--radius-24);
+  /* Figma 8568:5177 — rest surface is white/8%, themed automatically. */
+  background: var(--color-white-8);
+  overflow: hidden;
+  position: relative;
+  transition: background-color var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+}
+.review:hover {
+  /* Figma 8568:5203 — hover surface is white/16% (rest 8% + 12% overlay),
+     with a 1px white/4% inset stroke and a 24px purple glow at 32% alpha.
+     Outer gap stays at 24px (same as calm) — only colour & shadow change. */
+  background: var(--color-white-16);
+  box-shadow:
+    inset 0 0 0 1px var(--color-white-4),
+    inset 0 0 24px rgba(170, 118, 255, 0.32);
+}
+
+/* Header row — avatar + name/business */
+.review-author {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+}
+.review-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-rounded);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-white-8); /* placeholder behind transparent PNGs */
+}
+.review-meta {
+  display: flex;
+  flex-direction: column;
+  /* Custom 6px gap between name and studio role — sits between the
+     standard 4 and 8 tokens, kept as a literal because no token exists. */
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.review-name {
+  /* .label-s-m: 14 / 500 / 1 */
+  margin: 0;
+  color: var(--text-primary);
+}
+.review-role {
+  /* .caption-caps-m: 10 / 500 / 1.1 / uppercase */
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* Quote paragraph — body-s, secondary on calm, primary-ish on hover.
+   `flex: 1 1 auto` makes the quote take all the free vertical space
+   inside the card, pushing the .review-link to the bottom edge so
+   cards in a row line their links up regardless of quote length. */
+.review-quote {
+  margin: 0;
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+  transition: color var(--duration-base) var(--ease-out);
+}
+.review:hover .review-quote { color: var(--color-white-80); }
+
+/* Source link row — purple-600 text + matching icon. The icon paints in
+   `currentColor` (CSS mask trick), so it tracks the link colour through
+   calm → hover. On hover both link text and icon flip to --accent-lime. */
+.review-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--color-purple-600);
+  text-decoration: none;
+  /* .body-s sizing — declared inline to keep the component self-contained
+     (consumer can also pass .body-s as a class). */
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  transition: color var(--duration-base) var(--ease-out);
+}
+.review-link:hover { color: var(--accent-lime); }
+
+/* Icon slot — span with `--icon: url(...)`. background-color = currentColor
+   so the icon inherits whatever colour the link is in (purple calm, lime
+   hover). Consumers can also pass an inline SVG with fill="currentColor". */
+.review-link-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background-color: currentColor;
+  mask-image: var(--icon);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-image: var(--icon);
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+.review-link svg { width: 16px; height: 16px; flex-shrink: 0; fill: currentColor; }
+
+/* ==========================================================================
+   PROMO CARD · illustrated marketing card (Figma 8569:5216 / 8569:5275)
+   ----------------------------------------------------------------------------
+   Three top-level blocks separated by 48px outer gap:
+     1. .promo-card-illustration — fixed 180×180 logo / illustration
+     2. .promo-card-text         — flex column, 24px inner gap, holds:
+            .promo-card-title       — Cal Sans 28/1, black
+            .promo-card-body        — body-m (16/1.2) at black/80%
+            .promo-card-divider     — 1px hairline at black/8%
+            .promo-card-footer-copy — body-xs (12/14, 1% tracking) at black/60%
+     3. .btn .btn-fill .btn-l    — CTA (purple default; .is-dark for warm bg)
+
+   Two layout × theme variants matching Figma names:
+     .promo-card--centre — lavender-400 bg, everything centered (8569:5216)
+     .promo-card--left   — golden bg, left-aligned (8569:5275)
+
+   Tokens: --radius-24, --space-24/-32/-48, --color-lavender-400,
+   --color-carbon-400. Hex literals used for the golden bg + body opacity
+   tints because Figma fixes them as primitives. */
+
+.promo-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-48);
+  padding: var(--space-32);
+  border-radius: var(--radius-24);
+  overflow: hidden;
+  position: relative;
+  /* Spec floor — Figma 8569:5216 / 8569:5275 render at 360 wide but the
+     360-wide stage is illustrative; user fixed the lower bound at 300
+     so the 180×180 illustration + 32-px padding never crushes the
+     copy column to <236-wide reading space. */
+  min-width: 300px;
+  /* Promo cards always render their own dark text (lavender / golden are
+     warm fixed primitives); colour is forced inside the variants. */
+  color: var(--color-black);
+}
+
+.promo-card-illustration {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+}
+.promo-card-illustration > img,
+.promo-card-illustration > svg,
+.promo-card-illustration > video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.promo-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  width: 100%;
+}
+
+.promo-card-title {
+  margin: 0;
+  font-family: var(--font-promo);
+  font-weight: 400;
+  /* Figma: 28px / line-height 1, no letter-spacing override. */
+  font-size: 28px;
+  line-height: 1;
+  color: inherit;
+}
+
+.promo-card-body {
+  margin: 0;
+  /* Figma: SF Pro Regular 16/1.2, color rgba(0,0,0,0.8). Base
+     hex literal so it stays consistent on both themes (the warm
+     surface doesn't theme-flip). */
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.promo-card-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  border: none;
+  width: 100%;
+}
+
+.promo-card-footer-copy {
+  margin: 0;
+  /* Figma Body/XS: 12px / 14px line-height / 1% tracking / black 60%. */
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 14px;
+  letter-spacing: 0.12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* ── Variant · Centre (Figma 8569:5216 — lavender-400, centered) ───── */
+.promo-card--centre {
+  background: var(--color-lavender-400);
+  align-items: center;
+}
+.promo-card--centre .promo-card-text { align-items: center; text-align: center; }
+
+/* ── Variant · Left (Figma 8569:5275 — golden, left-aligned) ───────── */
+.promo-card--left {
+  /* #ffdca1 — Figma "golden/500". Hex literal because the token's
+     dark/light values flip and we need this exact hue both ways. */
+  background: #ffdca1;
+  align-items: flex-start;
+}
+.promo-card--left .promo-card-text { align-items: flex-start; text-align: left; }
+
+/* ==========================================================================
+   CODE BLOCK · syntax-highlighted code preview
+   ----------------------------------------------------------------------------
+   Always renders on a dark "terminal" surface regardless of page theme so
+   the token colours stay readable under WCAG AA on both modes. Markup:
+     <pre class="code-block"><code>
+       <span class="tok-c">// comment</span>
+       <span class="tok-k">import</span> Foo <span class="tok-k">from</span> <span class="tok-s">'foo'</span>;
+       Foo.<span class="tok-f">init</span>();
+     </code></pre>
+   In production swap to shiki/prism at build; the .tok-* classes can stay.
+   Token palette:
+     .tok-c — comment   · white/56% italic
+     .tok-k — keyword   · purple-300
+     .tok-s — string    · electric-lime
+     .tok-f — function  · golden-400
+   ========================================================================== */
+
+.code-block {
+  font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: var(--space-24);
+  border-radius: var(--radius-16);
+  background: #0d0d0f;
+  color: #e4e4e7;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+}
+.code-block .tok-c { color: rgba(255, 255, 255, 0.56); font-style: italic; }
+.code-block .tok-k { color: rgb(170, 118, 255); }            /* purple-300 dark */
+.code-block .tok-s { color: var(--color-electric-lime); }
+.code-block .tok-f { color: var(--color-golden-400); }
+
+/* ==========================================================================
+   BULLET LIST · vertical list with purple-dot bullets
+   ----------------------------------------------------------------------------
+   Promoted from .bento-c-bullets (bento page) — used anywhere a feature
+   list reads better with discrete bullets than dense prose. Markup:
+     <ul class="bullet-list">
+       <li>One platform, fifty fronts</li>
+       <li>Three lines of SDK</li>
+     </ul>
+   ========================================================================== */
+
+.bullet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.bullet-list > li {
+  position: relative;
+  padding-left: var(--space-24);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.bullet-list > li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-purple);
+}
+
+/* ==========================================================================
+   Stats row + big-number typography
+   ----------------------------------------------------------------------------
+   Reusable across landings (hero stat strips, market opportunity grids,
+   trust bands). Default layout is a 4-up grid with centered content;
+   consumers override grid-template-columns / alignment / gap via a
+   layered class. Typography (.stats-value / .stats-label) stays the
+   same across every variant for a consistent loud-number feel.
+   See pages/stats/ for cards / accent-rule variants on top.
+   ========================================================================== */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-32);
+  text-align: center;
+}
+.stats-row > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+@media (max-width: 780px) {
+  .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.stats-value {
+  font-family: var(--font-promo);
+  font-weight: 400;
+  font-size: clamp(2.5rem, 4.5vw, 4rem);
+  line-height: 1;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.stats-label {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* ----------------------------------------------------------------------------
+   Stats — section header + card-grid variant.
+   .stats-section-header is the centered eyebrow+h2+sub block used above
+   stats grids and reused by landing sections that follow the same pattern.
+   .stats-grid is the 4-up card layout (Variant B from pages/stats/), with
+   .stats-card as each surface and .stats-card-label/.stats-card-meta for
+   the secondary copy. The numeric value inside each card uses .stats-value
+   above for consistent loud-number typography.
+   ---------------------------------------------------------------------------- */
+.stats-section-header {
+  text-align: center;
+  margin-bottom: var(--space-48);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+.stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-32);
+  border-radius: var(--radius-24);
+  background: var(--color-white-4);
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+.stats-card:hover { background: var(--color-white-8); }
+
+.stats-card-label,
+.stats-card-meta { margin: 0; }
+.stats-card-label { color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}

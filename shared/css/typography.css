@@ -1,0 +1,329 @@
+/* ==========================================================================
+   Typography — mapped from Figma text styles
+
+   Production stack (used everywhere except promo headings):
+     Native system fonts — SF Pro (macOS/iOS), Segoe UI (Windows),
+     Roboto (Android). Matches Figma, zero network cost, always local.
+
+   Self-hosted families:
+     Cal Sans      — promo/hero headings only (landings).
+     Open Sans     — showcase-only alternative for landing experiments.
+     Satoshi       — showcase-only alternative for landing experiments.
+     Geist Mono    — showcase-only mono/code ladder.
+     Geist Pixel   — showcase-only display faces (5 variants).
+
+   The last four are only meant for the /pages/typography/ showcase,
+   so that a landing designer can audition each family against the
+   full text-style ladder (headings → captions). None of them are
+   referenced from component CSS — production always renders with
+   --font-heading / --font-body / --font-promo above.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'CalSans';
+  src: url('/assets/fonts/CalSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Open Sans — static family (Regular 400 / Medium 500 / SemiBold 600) */
+@font-face {
+  font-family: 'Open Sans';
+  src: url('/assets/fonts/Open_Sans/static/OpenSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('/assets/fonts/Open_Sans/static/OpenSans-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('/assets/fonts/Open_Sans/static/OpenSans-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Satoshi — variable font (covers the whole 300–900 range in one file) */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/assets/fonts/Satoshi_Complete/Fonts/Variable/Satoshi-Variable.ttf') format('truetype-variations');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Geist Mono — variable font */
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/assets/fonts/Geist_Mono/GeistMono-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Geist Pixel — five distinct display faces. Each is a single-weight
+   dingbat-like display font; we expose them as separate families so
+   the showcase can swap variant via CSS custom property. */
+@font-face {
+  font-family: 'Geist Pixel Circle';
+  src: url('/assets/fonts/Geist_Pixel/ttf/GeistPixel-Circle.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Pixel Grid';
+  src: url('/assets/fonts/Geist_Pixel/ttf/GeistPixel-Grid.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Pixel Line';
+  src: url('/assets/fonts/Geist_Pixel/ttf/GeistPixel-Line.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Pixel Square';
+  src: url('/assets/fonts/Geist_Pixel/ttf/GeistPixel-Square.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Pixel Triangle';
+  src: url('/assets/fonts/Geist_Pixel/ttf/GeistPixel-Triangle.ttf') format('truetype');
+  font-display: swap;
+}
+
+:root {
+  /* System font stack — SF Pro on Mac, Segoe UI on Windows */
+  --font-heading: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  /* Cal Sans — promo/hero headlines only */
+  --font-promo: 'CalSans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+
+  /* Showcase-only families — override --font-heading / --font-body on a
+     parent container to preview one of these across the full text-style
+     ladder without authoring new classes. */
+  --font-open-sans:        'Open Sans', var(--font-body);
+  --font-satoshi:          'Satoshi',   var(--font-body);
+  --font-geist-mono:       'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-geist-pixel:      'Geist Pixel Square', monospace;
+  --font-geist-pixel-circle:   'Geist Pixel Circle', monospace;
+  --font-geist-pixel-grid:     'Geist Pixel Grid', monospace;
+  --font-geist-pixel-line:     'Geist Pixel Line', monospace;
+  --font-geist-pixel-square:   'Geist Pixel Square', monospace;
+  --font-geist-pixel-triangle: 'Geist Pixel Triangle', monospace;
+}
+
+/* --- Headings --- */
+
+/* Figma: Heading/XXXL — SF Pro Medium 56px, line-height 100% */
+.heading-xxxl {
+  font-family: var(--font-heading);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Figma: Heading/XXL — SF Pro Semibold 48px, line-height 100% */
+.heading-xxl {
+  font-family: var(--font-heading);
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Figma: Heading/XL — SF Pro Semibold 40px, line-height 100% */
+.heading-xl {
+  font-family: var(--font-heading);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Figma: Heading/L — SF Pro Semibold 32px, line-height 100% */
+.heading-l {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Figma: Heading/M — SF Pro Semibold 28px, line-height 100% */
+.heading-m {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Figma: Heading/S — SF Pro Medium 23px, line-height 120% */
+.heading-s {
+  font-family: var(--font-heading);
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+/* Figma: Heading/XS — SF Pro Medium 21px, line-height 110% */
+.heading-xs {
+  font-family: var(--font-heading);
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+/* --- Promo Headings (Cal Sans) ---
+   Same size scale as standard headings but uses --font-promo (Cal Sans).
+   Use for hero headlines, landing page titles, marketing-first contexts. */
+
+.heading-promo-xxxl {
+  font-family: var(--font-promo);
+  font-size: 56px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.heading-promo-xxl {
+  font-family: var(--font-promo);
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.heading-promo-xl {
+  font-family: var(--font-promo);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.heading-promo-l {
+  font-family: var(--font-promo);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.heading-promo-m {
+  font-family: var(--font-promo);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.heading-promo-s {
+  font-family: var(--font-promo);
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.heading-promo-xs {
+  font-family: var(--font-promo);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+@media (max-width: 780px) {
+  .heading-promo-xxxl { font-size: 36px; }
+  .heading-promo-xxl  { font-size: 32px; }
+  .heading-promo-xl   { font-size: 28px; }
+  .heading-promo-l    { font-size: 24px; }
+  .heading-promo-m    { font-size: 22px; }
+  .heading-promo-s    { font-size: 20px; }
+  .heading-promo-xs   { font-size: 18px; }
+}
+
+/* --- Labels --- */
+
+.label-l { font-family: var(--font-body); font-size: 18px; font-weight: 400; line-height: 1; }
+.label-l-m { font-family: var(--font-body); font-size: 18px; font-weight: 500; line-height: 1; }
+.label-l-sb { font-family: var(--font-body); font-size: 18px; font-weight: 600; line-height: 1; }
+
+.label-m { font-family: var(--font-body); font-size: 16px; font-weight: 400; line-height: 1; }
+.label-m-m { font-family: var(--font-body); font-size: 16px; font-weight: 500; line-height: 1; }
+
+.label-s { font-family: var(--font-body); font-size: 14px; font-weight: 400; line-height: 1; }
+.label-s-m { font-family: var(--font-body); font-size: 14px; font-weight: 500; line-height: 1; }
+
+.label-xs { font-family: var(--font-body); font-size: 12px; font-weight: 400; line-height: 1; }
+.label-xs-m { font-family: var(--font-body); font-size: 12px; font-weight: 500; line-height: 1; }
+
+/* --- Body --- */
+
+.body-l { font-family: var(--font-body); font-size: 18px; font-weight: 400; line-height: 1.2; }
+.body-l-m { font-family: var(--font-body); font-size: 18px; font-weight: 500; line-height: 1.2; }
+.body-l-sb { font-family: var(--font-body); font-size: 18px; font-weight: 600; line-height: 1.2; }
+
+.body-m { font-family: var(--font-body); font-size: 16px; font-weight: 400; line-height: 1.2; }
+.body-m-m { font-family: var(--font-body); font-size: 16px; font-weight: 500; line-height: 1.2; }
+
+.body-s { font-family: var(--font-body); font-size: 14px; font-weight: 400; line-height: 1.2; }
+.body-s-m { font-family: var(--font-body); font-size: 14px; font-weight: 500; line-height: 1.2; }
+
+.body-xs { font-family: var(--font-body); font-size: 12px; font-weight: 400; line-height: 1.17; letter-spacing: 0.01em; }
+
+/* --- Captions --- */
+
+.caption-m { font-family: var(--font-body); font-size: 14px; font-weight: 500; line-height: 1; letter-spacing: 0.01em; }
+.caption-m-m { font-family: var(--font-body); font-size: 14px; font-weight: 500; line-height: 1.1; letter-spacing: 0.01em; }
+
+.caption-s { font-family: var(--font-body); font-size: 12px; font-weight: 400; line-height: 1; letter-spacing: 0.01em; }
+.caption-s-m { font-family: var(--font-body); font-size: 12px; font-weight: 500; line-height: 1.1; letter-spacing: 0.01em; }
+
+.caption-xs { font-family: var(--font-body); font-size: 10px; font-weight: 400; line-height: 1; letter-spacing: 0.01em; }
+
+.caption-caps-sb { font-family: var(--font-body); font-size: 10px; font-weight: 600; line-height: 1.1; letter-spacing: 0.03em; text-transform: uppercase; }
+.caption-caps-m { font-family: var(--font-body); font-size: 10px; font-weight: 500; line-height: 1.1; letter-spacing: 0.03em; text-transform: uppercase; }
+
+/* --- Responsive heading scale --- */
+
+@media (max-width: 780px) {
+  .heading-xxxl { font-size: 36px; }
+  .heading-xxl { font-size: 32px; }
+  .heading-xl { font-size: 28px; }
+  .heading-l { font-size: 24px; }
+  .heading-m { font-size: 22px; }
+  .heading-s { font-size: 20px; }
+  .heading-xs { font-size: 18px; }
+}
+
+/* ==========================================================================
+   COLOR UTILITY CLASSES
+   Replace inline `style="color: var(--text-...)"` patterns. Each maps 1:1
+   to its semantic token — visual output identical to the inline form,
+   but the rule lives in one place.
+   Coverage (from project audit):
+     .text-secondary  →  was style="color: var(--text-secondary)"   (52×)
+     .text-tertiary   →  was style="color: var(--text-tertiary)"    (64×)
+     .text-accent     →  was style="color: var(--accent-purple-text)" (35×)
+     .text-link       →  was style="color: var(--color-purple-500)" (30×)
+     .text-success    →  was style="color: var(--accent-lime-text)" (6×)
+     .text-error      →  was style="color: var(--accent-rose-text)" (3×)
+   ========================================================================== */
+.text-primary   { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary  { color: var(--text-tertiary); }
+.text-accent    { color: var(--accent-purple-text); }
+.text-link      { color: var(--color-purple-500); }
+.text-success   { color: var(--accent-lime-text); }
+.text-error     { color: var(--accent-rose-text); }

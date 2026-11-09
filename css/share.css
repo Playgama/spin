@@ -1,0 +1,92 @@
+/* Share page of the Boost slot: a phone opens it from the QR code of a win.
+   The same world as the TV screen: brand purple, Cal Sans, the prize in yellow. */
+
+:root {
+  /* The prize yellow of the TV mockup, as in slot.css. Not a library token. */
+  --slot-yellow: #ffe481;
+}
+
+@supports (color: oklch(0% 0 0)) {
+  :root { --slot-yellow: oklch(92.08% 0.1228 94.52); }
+}
+
+body {
+  margin: 0;
+  background: var(--color-purple-400);
+  color: var(--color-white);
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-16) var(--space-16) var(--space-32);
+  text-align: center;
+}
+
+/* BOOST and the logo keep the proportions they have in the TV strip (49.662 : 60). */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.brand__boost { height: 27px; }
+.brand__logo { height: 32px; }
+
+/* The cover's corners are the TV's: 72 of 572. Small enough for the buttons to fit a phone screen. */
+.cover {
+  margin-top: var(--space-16);
+  border-radius: var(--radius-16);
+  object-fit: cover;
+}
+
+.gain {
+  margin: var(--space-16) 0 0;
+  color: var(--slot-yellow);
+}
+
+.whom {
+  margin: var(--space-8) 0 0;
+}
+
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  margin-top: var(--space-16);
+}
+
+.ready[hidden] {
+  display: none;
+}
+
+.post {
+  margin-bottom: var(--space-8);
+  padding: var(--space-16);
+  border-radius: var(--radius-24);
+  background: var(--bg-card);
+  text-align: left;
+}
+
+.post__label {
+  margin: 0 0 var(--space-8);
+  color: var(--text-secondary);
+}
+
+.post__text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.hint {
+  margin: var(--space-8) 0 0;
+  color: var(--color-white-80);
+}

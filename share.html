@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>You boosted a game — Playgama Boost</title>
+  <link rel="stylesheet" href="shared/css/tokens.css">
+  <link rel="stylesheet" href="shared/css/typography.css">
+  <link rel="stylesheet" href="shared/css/components.css">
+  <link rel="stylesheet" href="css/share.css">
+</head>
+<body>
+  <!-- Opened on a phone from the QR code of a win on the slot: share.html?g=<game id>&p=<players>. -->
+  <main class="page">
+    <div class="brand">
+      <img class="brand__boost" src="assets/strip/boost.svg" alt="Boost">
+      <img class="brand__logo" src="assets/strip/playgama-pill.svg" alt="Playgama">
+    </div>
+    <img class="cover" id="cover" alt="" width="128" height="128" hidden>
+    <h1 class="gain heading-promo-xxxl" id="gain"></h1>
+    <p class="whom heading-promo-m" id="whom"></p>
+    <div class="ready" id="ready" hidden>
+      <section class="post">
+        <h2 class="post__label caption-m">Your post is ready</h2>
+        <p class="post__text body-l" id="post"></p>
+      </section>
+      <!-- Icons: the library's assets/icons (social/linkedin, social/x, system/copy-24), inline so they take the button's colour. -->
+      <a class="btn btn-l btn-fill is-inverse" id="linkedin" target="_blank" rel="noopener">
+        <svg class="btn-icon-slot" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5714 2H3.42411C2.63839 2 2 2.64732 2 3.44196V20.558C2 21.3527 2.63839 22 3.42411 22H20.5714C21.3571 22 22 21.3527 22 20.558V3.44196C22 2.64732 21.3571 2 20.5714 2ZM8.04464 19.1429H5.08036V9.59821H8.04911V19.1429H8.04464ZM6.5625 8.29464C5.61161 8.29464 4.84375 7.52232 4.84375 6.57589C4.84375 5.62946 5.61161 4.85714 6.5625 4.85714C7.50893 4.85714 8.28125 5.62946 8.28125 6.57589C8.28125 7.52679 7.51339 8.29464 6.5625 8.29464ZM19.1562 19.1429H16.192V14.5C16.192 13.3929 16.1696 11.9688 14.6518 11.9688C13.1071 11.9688 12.8705 13.1741 12.8705 14.4196V19.1429H9.90625V9.59821H12.75V10.9018H12.7902C13.1875 10.1518 14.1563 9.36161 15.5982 9.36161C18.5982 9.36161 19.1562 11.3393 19.1562 13.9107V19.1429Z"/></svg>
+        Post on LinkedIn
+      </a>
+      <a class="btn btn-l btn-fill is-inverse" id="x" target="_blank" rel="noopener">
+        <svg class="btn-icon-slot" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.7497 3H20.8179L14.1165 10.624L22 21H15.8288L10.9917 14.7087L5.46371 21H2.39113L9.55758 12.8438L2 3H8.32768L12.6953 8.75048L17.7497 3ZM16.6719 19.174H18.3711L7.402 4.73077H5.57671L16.6719 19.174Z"/></svg>
+        Post on X
+      </a>
+      <button class="btn btn-l btn-fill is-inverse" id="copy" type="button">
+        <svg class="btn-icon-slot" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.4375 3H15.8004C16.2469 3 16.6758 3.1793 16.9922 3.4957L19.3793 5.88281C19.6957 6.19922 19.875 6.62812 19.875 7.07461V14.8125C19.875 15.7441 19.1191 16.5 18.1875 16.5H11.4375C10.5059 16.5 9.75 15.7441 9.75 14.8125V4.6875C9.75 3.75586 10.5059 3 11.4375 3ZM5.8125 7.5H8.625V9.75H6.375V18.75H13.125V17.625H15.375V19.3125C15.375 20.2441 14.6191 21 13.6875 21H5.8125C4.88086 21 4.125 20.2441 4.125 19.3125V9.1875C4.125 8.25586 4.88086 7.5 5.8125 7.5Z"/></svg>
+        <span id="copy-label">Copy text</span>
+      </button>
+      <p class="hint body-s">On LinkedIn, paste the text: it's already copied.</p>
+    </div>
+  </main>
+  <script type="module" src="js/share.js"></script>
+</body>
+</html>

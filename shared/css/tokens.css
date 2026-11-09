@@ -1,0 +1,245 @@
+/* ==========================================================================
+   Design Tokens — extracted from Figma Library (xwAzt5GCfCsP9RbHtwZXo4)
+   Collection: Colors (Dark + Light modes) + Radius + Spacing + Motion
+
+   Theme switching
+   ---------------
+     <html data-theme="dark">    force dark
+     <html data-theme="light">   force light
+     <html data-theme="auto">    follow OS preference
+     <html>  (no attr)           dark (default)
+
+   Themed colors use the native CSS light-dark() function. Which branch
+   resolves is driven by the color-scheme property on :root, set per
+   data-theme below. This lets us express each token exactly once, in
+   source of truth form `light-dark(lightValue, darkValue)`, instead of
+   maintaining three parallel blocks (dark / [data-theme=light] / @media
+   prefers-color-scheme: light [data-theme=auto]).
+
+   Requires: Chrome 123+, Safari 17.5+, Firefox 120+ (all 2024-or-newer).
+   ========================================================================== */
+
+/* ==========================================================================
+   1. COLOR-SCHEME WIRING — drives light-dark() resolution
+   ========================================================================== */
+
+:root,
+:root[data-theme="dark"]  { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="auto"]  { color-scheme: light dark; }
+
+/* ==========================================================================
+   2. PRIMITIVES — theme-independent
+   ========================================================================== */
+
+:root {
+  /* --- BW constants --- */
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-bw-c:  #ffffff;                     /* "white-c" — white in both themes */
+
+  /* --- Brand accents (same across themes) --- */
+  --color-purple-400:   rgb(151, 71, 255);    /* #9747FF — brand */
+  --color-electric-lime: rgb(192, 255, 71);   /* #C0FF47 */
+  --color-mature-lime:  rgb(252, 255, 69);
+  --color-salad:        rgb(156, 229, 46);
+
+  /* --- 400-step mid-tones (shared by both themes per Figma) --- */
+  --color-deep-blue-400: rgb(74, 62, 132);
+  --color-lavender-400:  rgb(216, 187, 255);
+  --color-rose-400:      rgb(255, 156, 156);
+  --color-golden-400:    rgb(255, 200, 80);
+  --color-carbon-400:    rgb(41, 41, 46);
+  --color-moss-700:      rgb(74, 122, 0);   /* deep moss-green for lime-on-light */
+
+  /* --- Radius scale --- */
+  --radius-4:  4px;
+  --radius-6:  6px;
+  --radius-8:  8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-24: 24px;
+  --radius-32: 32px;
+  --radius-40: 40px;
+  --radius-rounded: 1000px;
+
+  /* --- Motion: Durations ---
+     instant: button press feedback (transform)
+     fast:    snappy micro-interactions (switch thumb, checkbox icon)
+     base:    default hover transitions (color, bg, border)
+     slow:    deliberate transitions (modals, cards, focus)
+     slower:  extended sequences (promo button gradients)
+  */
+  --duration-instant: 100ms;
+  --duration-fast:    150ms;
+  --duration-base:    200ms;
+  --duration-slow:    250ms;
+  --duration-slower:  400ms;
+
+  /* --- Motion: Easings ---
+     out:    natural deceleration, default for entering elements
+     in:     acceleration, for exiting elements
+     in-out: symmetric, for looping or bi-directional transitions
+     spring: bouncy, playful — for delightful micro-interactions
+     linear: constant speed — only for spinners and continuous loops
+  */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-linear: linear;
+
+  /* --- Motion: Composite transitions --- */
+  --transition-colors: color var(--duration-base) var(--ease-out),
+                       background-color var(--duration-base) var(--ease-out),
+                       border-color var(--duration-base) var(--ease-out),
+                       fill var(--duration-base) var(--ease-out),
+                       stroke var(--duration-base) var(--ease-out);
+  --transition-opacity:   opacity var(--duration-base) var(--ease-out);
+  --transition-transform: transform var(--duration-base) var(--ease-out);
+  --transition-all:       all var(--duration-base) var(--ease-out);
+
+  /* --- Spacing scale --- */
+  --space-4:   4px;
+  --space-8:   8px;
+  --space-12:  12px;
+  --space-16:  16px;
+  --space-20:  20px;
+  --space-24:  24px;
+  --space-32:  32px;
+  --space-40:  40px;
+  --space-48:  48px;
+  --space-64:  64px;
+  --space-80:  80px;
+  --space-96:  96px;
+  --space-120: 120px;
+
+  /* ==========================================================================
+     3. THEMED COLORS — light-dark(lightValue, darkValue)
+
+     Key inversions from dark → light:
+       - Opacity colors flip from white-on-dark → black-on-light
+       - Color ramps reverse: 100 (deepest dark) ↔ 600 (lightest dark)
+       - -400 step stays the same (brand consistency) — see primitives above
+       - Carbon scale inverts: graphite-on-white vs off-white-on-black
+     ========================================================================== */
+
+  /* --- BW opacity --- */
+  --color-white-80: light-dark(rgba(0, 0, 0, 0.8),  rgba(255, 255, 255, 0.8));
+  --color-white-60: light-dark(rgba(0, 0, 0, 0.6),  rgba(255, 255, 255, 0.6));
+  --color-white-40: light-dark(rgba(0, 0, 0, 0.4),  rgba(255, 255, 255, 0.4));
+  --color-white-20: light-dark(rgba(0, 0, 0, 0.2),  rgba(255, 255, 255, 0.2));
+  --color-white-16: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.16));  /* light uses 12%, dark uses 16% */
+  --color-white-12: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
+  --color-white-8:  light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  --color-white-4:  light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.04));
+
+  /* --- Purple ramp --- */
+  --color-purple-100: light-dark(rgb(224, 209, 255), rgb(43, 16, 79));
+  --color-purple-200: light-dark(rgb(199, 171, 255), rgb(66, 27, 117));
+  --color-purple-300: light-dark(rgb(170, 118, 255), rgb(104, 46, 178));
+  /* purple-400 in primitives — same in both */
+  --color-purple-500: light-dark(rgb(104, 46, 178),  rgb(170, 118, 255));
+  --color-purple-600: light-dark(rgb(71, 28, 128),   rgb(199, 171, 255));
+
+  /* --- Deep Blue ramp --- */
+  --color-deep-blue-100: light-dark(rgb(237, 236, 243), rgb(17, 14, 31));
+  --color-deep-blue-200: light-dark(rgb(172, 166, 198), rgb(31, 26, 55));
+  --color-deep-blue-300: light-dark(rgb(110, 101, 157), rgb(51, 43, 92));
+  /* deep-blue-400 in primitives */
+  --color-deep-blue-500: light-dark(rgb(53, 44, 94),    rgb(110, 101, 157));
+  --color-deep-blue-600: light-dark(rgb(31, 26, 55),    rgb(195, 188, 224));
+
+  /* --- Lavender ramp --- */
+  --color-lavender-100: light-dark(rgb(251, 249, 255), rgb(68, 59, 81));
+  --color-lavender-200: light-dark(rgb(243, 234, 255), rgb(125, 108, 147));
+  --color-lavender-300: light-dark(rgb(230, 212, 255), rgb(176, 153, 208));
+  /* lavender-400 in primitives */
+  --color-lavender-500: light-dark(rgb(176, 153, 208), rgb(230, 212, 255));
+  --color-lavender-600: light-dark(rgb(125, 108, 147), rgb(243, 234, 255));
+
+  /* --- Rose ramp --- */
+  --color-rose-100: light-dark(rgb(255, 247, 247), rgb(81, 49, 49));
+  --color-rose-200: light-dark(rgb(255, 227, 227), rgb(147, 90, 90));
+  --color-rose-300: light-dark(rgb(255, 195, 195), rgb(208, 127, 127));
+  /* rose-400 in primitives */
+  --color-rose-500: light-dark(rgb(208, 127, 127), rgb(255, 195, 195));
+  --color-rose-600: light-dark(rgb(147, 90, 90),   rgb(255, 227, 227));
+
+  /* --- Golden ramp --- */
+  --color-golden-100: light-dark(rgb(255, 250, 243), rgb(81, 63, 25));
+  --color-golden-200: light-dark(rgb(255, 238, 213), rgb(147, 116, 46));
+  --color-golden-300: light-dark(rgb(255, 220, 161), rgb(208, 163, 65));
+  /* golden-400 in primitives */
+  --color-golden-500: light-dark(rgb(208, 163, 65),  rgb(255, 220, 161));
+  --color-golden-600: light-dark(rgb(147, 116, 46),  rgb(255, 238, 213));
+
+  /* --- Carbon ramp (inverts: graphite-on-white vs off-white-on-black) --- */
+  --color-carbon-100: light-dark(rgb(189, 189, 190), rgb(7, 7, 8));
+  --color-carbon-200: light-dark(rgb(157, 157, 159), rgb(13, 13, 15));
+  --color-carbon-300: light-dark(rgb(84, 84, 88),    rgb(29, 29, 33));
+  /* carbon-400 in primitives — same in both */
+  --color-carbon-500: light-dark(rgb(29, 29, 33),    rgb(98, 98, 102));
+  --color-carbon-600: light-dark(rgb(17, 17, 19),    rgb(162, 162, 168));
+
+  /* --- Experimental surfaces --- */
+  --color-carbon-purple:     light-dark(rgb(207, 203, 242), rgb(29, 28, 38));     /* card bg */
+  --color-carbon-purple-400: light-dark(rgb(207, 203, 242), rgb(42, 41, 53));     /* card hover */
+
+  /* ==========================================================================
+     4. SEMANTIC ALIASES — refer to themed tokens above (so they inherit the
+     correct branch automatically; explicit light-dark() only where the
+     source token differs between themes in kind, not just in value).
+     ========================================================================== */
+
+  --bg-primary:     light-dark(var(--color-white),         var(--color-black));
+  --bg-surface:     light-dark(rgb(250, 250, 250),         var(--color-carbon-200));
+  --bg-elevated:    light-dark(rgb(245, 245, 247),         var(--color-carbon-300));
+  --bg-card:        light-dark(var(--color-lavender-100),  var(--color-carbon-purple));
+  --text-primary:   light-dark(var(--color-black),         var(--color-white));
+  --text-secondary: var(--color-white-60);                 /* themed via white-60 */
+  --text-tertiary:  light-dark(rgba(0, 0, 0, 0.56), rgba(255, 255, 255, 0.56));  /* WCAG AA: 4.91:1 */
+  --border-default: var(--color-white-8);                  /* themed via white-8 */
+  --border-strong:  var(--color-white-16);                 /* themed via white-16 */
+  --accent-purple:  var(--color-purple-400);
+  --accent-lime:    var(--color-electric-lime);
+  --accent-golden:  var(--color-golden-400);
+
+  /* Purple tuned for small text — purple-400 (#9747ff) only hits 4.3:1 on
+     #0d0d0f which fails WCAG AA for small text (needs 4.5:1). purple-500
+     in light (#682eb2) gives 7.6:1 on white; lavender-400 in dark (#d8bbff)
+     gives 7.4:1 on #1d1d21 — safe for eyebrows, links, code, and other
+     body-size accents on any common surface. */
+  --accent-purple-text: light-dark(rgb(104, 46, 178), rgb(216, 187, 255));
+
+  /* Purple tuned for hover states on nav / pill / ghost surfaces —
+     purple-400 (brand, saturated) reads well on the light surface;
+     purple-500 (themed, lavender-tinted) has the right punch against
+     the dark surface. Wrap both mappings in one token so components
+     can drop the three-branch (dark default / [data-theme=light] /
+     @media prefers + [data-theme=auto]) duplication. */
+  --accent-purple-hover: light-dark(var(--color-purple-400), var(--color-purple-500));
+
+  /* Rose-on-rose-fill — the rose-400 (#ff9c9c) background demands very dark
+     text for WCAG AA. rose-100 dark (#513131) passes at 5.94:1, but light's
+     rose-100 (#fff7f7) is near-white and rose-600 light (#935a5a) is only
+     2.72:1. A near-black maroon works on rose-400 in both themes. */
+  --accent-rose-text-on-fill: rgb(60, 20, 20);           /* #3c1414 on #ff9c9c = 7.5:1 */
+
+  /* Disabled-text token — sidesteps the compounded-opacity trap. Pair with
+     `aria-disabled="true"` on HTML; this colour stays contrast-safe even
+     if a designer forgets the aria. Dark value on carbon-400 (#29292e) is
+     6.3:1; light value on white-8-composited (#ebebeb) is 5.6:1. */
+  --text-disabled: light-dark(rgb(88, 88, 88), rgb(192, 192, 192));
+
+  /* Electric-lime is only WCAG-safe on dark surfaces. Body copy that carries
+     lime meaning on light bg needs a darker lime. Dark value is the token
+     untouched; light is a dark olive that still reads "lime" visually. */
+  --accent-lime-text: light-dark(rgb(75, 115, 0), var(--color-electric-lime));
+
+  /* Rose text on surface bg. rose-400 (#ff9c9c) = 2:1 on white — fails AA.
+     rose-600 light (#935a5a) = 4.77:1 on white ✓; rose-400 dark (#ff9c9c)
+     on #0a0a0a = 8.51:1 ✓. Use this wherever rose appears as body text,
+     labels, or error messages. */
+  --accent-rose-text: light-dark(rgb(147, 90, 90), rgb(255, 156, 156));
+}
