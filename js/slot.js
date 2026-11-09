@@ -76,6 +76,39 @@ const WORDS = {
 const SAY_NONE = 4; // seconds "No match" stays before the invitation returns
 const SAY_WIN = 60; // seconds a win and its QR code stay if nobody spins
 
+// While the reels turn, the line under them says something a web gamer would: one quip a spin, in
+// the size of the game's name under a win. A second set is for the moment two reels have matched.
+const QUIPS = [
+  'Insert coin',
+  "Let's gooo",
+  'GG or no GG?',
+  'RNG, be nice',
+  'Any% speedrun',
+  'Big brain time',
+  'Achievement unlocked: spinning',
+  'Respawning players…',
+  'Loading… 99%',
+  'Press F to boost',
+  'Clutch or kick',
+  'Combo incoming',
+  'One more spin',
+  'Not a bug, a feature',
+  'Touch grass later',
+  'Skill issue? Never.',
+  'Rare drop loading',
+  'No cap, pure luck',
+  'Headshot! Wait, wrong game',
+  'Rolling… please hold',
+];
+const TEASE_QUIPS = ['Two of a kind. One to go.', 'Hold your breath', 'Come on, third reel'];
+let lastQuip = '';
+function quip(list) {
+  let pick = list[Math.floor(Math.random() * list.length)];
+  if (pick === lastQuip) pick = list[(list.indexOf(pick) + 1) % list.length];
+  lastQuip = pick;
+  return pick;
+}
+
 // The QR code of a win leads a phone to share.html, which lies next to this page. A phone cannot
 // open "localhost": if the slot is not served from a public address, put the public address of
 // this folder here, like 'https://playgama.com/boost-slot/'.
@@ -352,6 +385,7 @@ let queued = false; // a spin was asked for before the belts were ready
 let next = null; // { targets }: the game each reel will stop on
 let result = null; // { prize, reels, game, shown } of the current spin; a win adds { beats, lights, landed, rain }
 let tease = false; // this spin has anticipation: the first two reels match
+let teased = false; // the anticipation's quip is up
 let plan = { stop: STOP, reveal: REVEAL, settle: SETTLE }; // when this spin's reels stop, in seconds
 let spinStart = 0;
 let revealAt = 0;
@@ -834,7 +868,8 @@ function spin() {
   const last = tease ? 2 * STAGGER + TEASE_AT + TEASE_TIME : STOP[2];
   plan = { stop: [STOP[0], STOP[1], last], reveal: last + 0.18, settle: last + T_SETTLE };
   for (const reel of reels) reel.hit = false;
-  say();
+  say('', quip(QUIPS)); // the quip under the turning reels
+  teased = false;
   if (boosted) marqueeRate(1);
   phase = 'spinning';
   spinStart = performance.now();
@@ -976,6 +1011,10 @@ function tick(now) {
   if (phase === 'result' && now >= idleAt) phase = 'idle';
   const party = result?.shown ? (now - revealAt) / 1000 : Infinity;
   const jackpot = result?.shown && result.prize === 100 && !calm;
+  if (tease && !teased && phase === 'spinning' && !result.shown && (now - spinStart) / 1000 > STOP[1] + 0.1) {
+    teased = true;
+    say('', quip(TEASE_QUIPS));
+  }
   if (result?.shown && result.prize) tally(party);
   if (boosted && party > PARTY[100] - 0.4) marqueeRate(1);
   // The jackpot shakes the whole stage twice: when the reels show it, and harder when the prize lands.

@@ -19,7 +19,7 @@ async function start() {
     `I just sent +${players} players to ${game.title} on the Playgama Boost slot machine 🎰`,
     "Why? Because I'm nice. And so is Playgama.",
     link,
-  ].join('\n');
+  ].join(' '); // one paragraph
 
   $('cover').src = `assets/covers/${game.file}`;
   $('cover').alt = game.title;
