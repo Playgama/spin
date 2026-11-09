@@ -139,8 +139,8 @@ function tokenColor(name) {
 // ---------- Reel motion ----------
 
 // Belt travel and speed of reel `i`, `t` seconds after it was launched. `teased` is the third reel
-// of a spin with anticipation.
-function motion(i, t, teased = false) {
+// of a spin with anticipation; `skip` is the seconds of full speed it leaves out (see slam).
+function motion(i, t, teased = false, skip = 0) {
   if (t <= 0) return [0, 0];
   let end = TRAVEL[i] * PITCH;
   if (teased && t >= TEASE_AT) {
@@ -160,9 +160,10 @@ function motion(i, t, teased = false) {
     if (t < T_ACCEL) return [-WIND + (SPEED * t * t) / (2 * T_ACCEL), (SPEED * t) / T_ACCEL];
     t -= T_ACCEL;
     let off = -WIND + (SPEED * T_ACCEL) / 2;
-    if (t < cruise(i)) return [off + SPEED * t, SPEED];
-    t -= cruise(i);
-    off += SPEED * cruise(i);
+    const run = cruise(i) - skip;
+    if (t < run) return [off + SPEED * t, SPEED];
+    t -= run;
+    off += SPEED * run;
     if (t < T_DECEL) return [off + SPEED * t - (SPEED * t * t) / (2 * T_DECEL), SPEED * (1 - t / T_DECEL)];
     t -= T_DECEL;
   }
@@ -387,6 +388,7 @@ let result = null; // { prize, reels, game, shown } of the current spin; a win a
 let tease = false; // this spin has anticipation: the first two reels match
 let teased = false; // the anticipation's quip is up
 let plan = { stop: STOP, reveal: REVEAL, settle: SETTLE }; // when this spin's reels stop, in seconds
+let skip = [0, 0, 0]; // seconds of full speed each reel leaves out this spin (see slam)
 let spinStart = 0;
 let revealAt = 0;
 let idleAt = 0;
@@ -945,6 +947,7 @@ function spin() {
   tease = !calm && next.targets[0] === next.targets[1];
   const last = tease ? 2 * STAGGER + TEASE_AT + TEASE_TIME : STOP[2];
   plan = { stop: [STOP[0], STOP[1], last], reveal: last + 0.18, settle: last + T_SETTLE };
+  skip = [0, 0, 0];
   for (const reel of reels) reel.hit = false;
   say('', quip(QUIPS), 'is-quip'); // the quip under the turning reels
   teased = false;
@@ -954,6 +957,27 @@ function spin() {
   play('lever-start', { gain: 0.7 });
   whirr = play('spin-loop', { gain: 0.5, loop: true, delay: T_WIND });
   kick();
+}
+
+// A second press while the reels turn stops them early, `t` seconds into the spin. Each reel leaves out
+// the whole turns of its belt it has left at full speed, so it lands on the same cover and still slows
+// down and springs back as always; they stop in order, a stagger apart. Pressed early, a reel first
+// reaches full speed. Once the anticipation has begun, the third reel plays it out; pressed before,
+// there is none.
+const TURN = BELT / SPEED; // one turn of a belt at full speed
+function slam(t = (performance.now() - spinStart) / 1000) {
+  if (phase !== 'spinning' || (tease && t > STOP[1])) return;
+  tease = false;
+  let prev = -Infinity;
+  STOP.forEach((stop, i) => {
+    const full = i * STAGGER + T_WIND + T_ACCEL; // when the reel reaches full speed
+    let turns = Math.max(0, Math.floor((full + cruise(i) - skip[i] - Math.max(t, full)) / TURN));
+    while (turns > 0 && stop - skip[i] - turns * TURN < prev + STAGGER - 1e-6) turns--;
+    skip[i] += turns * TURN;
+    plan.stop[i] = prev = stop - skip[i];
+  });
+  plan.reveal = plan.stop[2] + 0.18;
+  plan.settle = plan.stop[2] + T_SETTLE;
 }
 
 // The sound of anticipation, `wait` seconds from now: a tone that climbs until the third reel stops,
@@ -1051,7 +1075,7 @@ function render(now) {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   gl.uniform1f(U.shaftPass, 0);
   reels.forEach((reel, i) => {
-    const [off, speed] = phase === 'spinning' ? motion(i, t - i * STAGGER, tease && i === 2) : [0, 0];
+    const [off, speed] = phase === 'spinning' ? motion(i, t - i * STAGGER, tease && i === 2, skip[i]) : [0, 0];
     let [dim, glow, shine, nudge] = celebrate(i, party);
     // Anticipation: the two reels that match light up, and the frame of the third one pulses while it slows.
     if (tease && phase === 'spinning' && !result.shown && t > STOP[1]) {
@@ -1142,13 +1166,15 @@ function fit() {
 }
 
 addEventListener('resize', fit);
+// A press spins the reels; pressed again while they turn, it stops them early.
+const press = () => (phase === 'spinning' ? slam() : spin());
 addEventListener('pointerdown', (event) => {
-  if (event.button === 0) spin();
+  if (event.button === 0) press();
 });
 addEventListener('keydown', (event) => {
   if ((event.code !== 'Space' && event.code !== 'Enter') || event.repeat) return;
   event.preventDefault();
-  spin();
+  press();
 });
 
 async function start() {
@@ -1200,6 +1226,7 @@ window.__slot = {
   motion,
   prepare,
   spin,
+  slam, // at a given second of the spin
   step(seconds) {
     stepping = true;
     cancelAnimationFrame(frame);
