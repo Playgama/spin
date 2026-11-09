@@ -51,8 +51,10 @@ const REVEAL = STOP[2] + 0.18;
 const SETTLE = STOP[2] + T_SETTLE;
 
 const PRIZE = { 3: 100, 2: 50 }; // matching reels → players
-const HOLD = { 0: 0, 50: 1.1, 100: 2 }; // seconds before the next spin may start
-const PARTY = { 0: 0, 50: 1.4, 100: 3.6 }; // seconds the win animation runs
+const HOLD = { 0: 0, 50: 1.2, 100: 2 }; // seconds before the next spin may start: the prize has landed by then
+const COUNT = { 50: 1, 100: 1.8 }; // seconds a prize counts up from zero before it lands
+const STEPS = { 50: 16, 100: 30 }; // steps of that count; each has its own tick and its own light
+const PARTY = { 0: 0, 50: 3, 100: 6.8 }; // seconds the win animation runs
 const FORCE = { jackpot: [0, 0, 0], pair: [0, 0, 1], none: [0, 1, 2] }; // test hook only
 
 // The words under the reels: a headline and the line under it. A win's are made from its prize and game.
@@ -66,7 +68,7 @@ const SAY_WIN = 60; // seconds a win and its QR code stay if nobody spins
 // The QR code of a win leads a phone to share.html, which lies next to this page. A phone cannot
 // open "localhost": if the slot is not served from a public address, put the public address of
 // this folder here, like 'https://playgama.com/boost-slot/'.
-const SHARE_BASE = '';
+const SHARE_BASE = 'https://playgama.github.io/spin/';
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
 
@@ -326,7 +328,7 @@ let phase = 'loading'; // loading → idle → spinning → result → idle
 let ready = false; // the belts hold the games of the coming spin
 let queued = false; // a spin was asked for before the belts were ready
 let next = null; // { targets }: the game each reel will stop on
-let result = null; // { prize, reels, game, shown } of the current spin
+let result = null; // { prize, reels, game, shown } of the current spin; a win adds { beats, lights, landed, rain }
 let spinStart = 0;
 let revealAt = 0;
 let idleAt = 0;
@@ -446,6 +448,26 @@ function play(name, { gain = 1, rate = 1, loop = false, delay = 0 } = {}) {
   return { source, volume };
 }
 
+// One tick of the prize count: a short note. The count climbs a major pentatonic scale, so any run of
+// ticks sounds like a tune; the pitch wavers a little so a long run does not tire the ear.
+const SCALE = [0, 2, 4, 7, 9];
+function blip(delay, step, steps) {
+  if (muted) return;
+  const degree = Math.floor((step * (steps > 20 ? 14 : 9)) / steps);
+  const note = SCALE[degree % 5] + 12 * Math.floor(degree / 5);
+  const at = audio.currentTime + Math.max(delay, 0);
+  const tone = audio.createOscillator();
+  const volume = audio.createGain();
+  tone.type = 'triangle';
+  tone.frequency.value = 392 * 2 ** (note / 12) * (1 + (Math.random() - 0.5) * 0.03);
+  volume.gain.setValueAtTime(0, at);
+  volume.gain.linearRampToValueAtTime(0.16, at + 0.006);
+  volume.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+  tone.connect(volume).connect(audio.destination);
+  tone.start(at);
+  tone.stop(at + 0.14);
+}
+
 // ---------- Win animation ----------
 
 const stage = document.getElementById('stage');
@@ -460,6 +482,8 @@ let sparks = [];
 let boosted = false;
 let raysOn = false;
 let stageScale = 1;
+let view = { zoom: 1, left: 0, top: 0, right: STAGE_W, bottom: STAGE_H }; // the window, in the stage's pixels
+const FLIGHT = 0.42; // seconds a light flies from a cover to the number
 
 // A jackpot's beams of light: two sets that turn against each other, wide and thin. `turn` is in
 // radians a second, `width` is half a beam's width as a share of the angle between two beams, and
@@ -499,6 +523,8 @@ function say(headline = '', note = '', mood = '') {
   clearTimeout(sayTimer);
   prizeEl.textContent = headline;
   prizeEl.className = headline ? `prize is-on ${mood}` : 'prize';
+  prizeEl.style.transform = '';
+  prizeEl.removeAttribute('aria-busy');
   noteEl.textContent = note;
   noteEl.classList.toggle('is-on', Boolean(note));
   qrEl.classList.toggle('is-on', Boolean(mood));
@@ -529,19 +555,67 @@ function share(game, prize) {
 
 // What the win does to reel `i`, `t` seconds after the result was shown: [brightness, glow, shine, nudge].
 // A matching reel lights up, pulses, gets a light sweep and rocks on its axis; the light then stays on
-// until the next spin. In a pair the odd reel goes dim. The jackpot runs the same along all three, longer.
+// until the next spin. In a pair the odd reel goes dark. The jackpot runs the same along all three, longer.
+// Everything happens twice: when the reels show the win, and harder when the counted prize lands.
 function celebrate(i, t) {
   if (!result?.shown || !result.prize || t < 0) return [1, 0, 9, 0];
-  if (!result.reels.includes(i)) return [1 - 0.5 * clamp01(t / 0.25), 0, 9, 0];
+  if (!result.reels.includes(i)) return [1 - 0.78 * clamp01(t / 0.25), 0, 9, 0];
   if (calm) return [1, 0.6, 9, 0];
   const jackpot = result.prize === 100;
   const lag = jackpot ? i * 0.09 : 0;
-  const pulse = jackpot ? beat(t - 0.05 - lag, 0.625, 5) : beat(t - 0.05, 0.45, 2);
+  const landed = t - COUNT[result.prize] - lag;
+  const pulse = landed < 0 ? beat(t - 0.05 - lag, 0.4, 5) : beat(landed, 0.625, jackpot ? 7 : 2);
   const glow = clamp01(t / 0.12) * (0.55 + 0.45 * pulse);
-  const sweep = jackpot && t < PARTY[100] ? (t - lag) % 1.2 : t - lag;
+  const sweep = landed < 0 ? t - lag : jackpot && t < PARTY[100] ? landed % 1.2 : landed;
   const shine = sweep >= 0 && sweep < 0.6 ? -1.3 + (sweep / 0.6) * 2.6 : 9;
-  const nudge = 10 * Math.sin(2 * Math.PI * 3 * t) * Math.exp(-3 * t);
-  return [1, glow, shine, nudge];
+  const jolt = (since) => (since < 0 ? 0 : 10 * Math.sin(2 * Math.PI * 3 * since) * Math.exp(-3 * since));
+  return [1, glow, shine, jolt(t) + 1.4 * jolt(landed)];
+}
+
+// Lay out the count of a win. `beats` are the moments, seconds after the reels showed it, the number
+// takes a step up: quick at first, slower towards the end. Before each beat a light leaves a winning
+// cover and lands on the number with it.
+function score() {
+  const span = COUNT[result.prize];
+  const steps = STEPS[result.prize];
+  fx.font = '400 156px CalSans';
+  const whole = fx.measureText(`+${result.prize} players`).width;
+  const number = fx.measureText(`+${result.prize}`).width;
+  const middle = STAGE_W / 2 - whole / 2 + number / 2; // where the number will stand
+  result.beats = Array.from({ length: steps }, (_, k) => 0.25 + (span - 0.25) * (1 - Math.sqrt(1 - (k + 1) / steps)));
+  result.lights = result.beats.map((at, k) => ({
+    at,
+    x: REEL_X[result.reels[k % result.reels.length]] + (Math.random() - 0.5) * COVER * 0.6,
+    y: REEL_Y + COVER * 0.42,
+    bend: (Math.random() - 0.5) * 360,
+    tx: middle + (Math.random() - 0.5) * number * 0.7,
+    ty: 934,
+  }));
+  result.landed = false;
+  result.rain = 0;
+}
+
+// The prize counts up and then lands. The landing is the loudest moment of a win: by then nobody
+// has to watch the reels.
+function tally(party) {
+  if (result.landed) return;
+  const jackpot = result.prize === 100;
+  if (!calm && party < COUNT[result.prize]) {
+    const passed = result.beats.filter((at) => at <= party).length;
+    const text = `+${Math.round((result.prize * passed) / result.beats.length)} players`;
+    if (prizeEl.textContent !== text) prizeEl.textContent = text;
+    const since = passed ? party - result.beats[passed - 1] : 1;
+    prizeEl.style.transform = `scale(${(1 + 0.05 * Math.exp(-since / 0.07)).toFixed(3)})`; // a bump on every step
+    return;
+  }
+  result.landed = true;
+  prizeEl.textContent = `+${result.prize} players`;
+  prizeEl.style.transform = '';
+  prizeEl.classList.add('is-landed');
+  prizeEl.removeAttribute('aria-busy');
+  if (calm) return;
+  for (const i of result.reels) burstSparks(i, jackpot ? 40 : 18);
+  if (jackpot) burstConfetti();
 }
 
 function burstConfetti() {
@@ -552,16 +626,41 @@ function burstConfetti() {
     const angle = 0.2 + Math.random() * 0.75;
     const speed = 1500 + Math.random() * 1300;
     confetti.push({
-      x: STAGE_W / 2 + side * (STAGE_W / 2 + 20),
-      y: STAGE_H + 20,
+      x: side > 0 ? view.right + 20 : view.left - 20,
+      y: view.bottom + 20,
       vx: -side * Math.sin(angle) * speed,
       vy: -Math.cos(angle) * speed,
+      fall: 1900,
+      drag: 0.6,
       w: 12 + Math.random() * 12,
       h: 7 + Math.random() * 6,
       turn: Math.random() * 6.28,
       turnSpeed: (Math.random() - 0.5) * 16,
       flip: Math.random() * 6.28,
       flipSpeed: 6 + Math.random() * 8,
+      color: colors[n % colors.length],
+    });
+  }
+}
+
+// After the cannons, confetti drifts down from above the window: slow, so the party lasts.
+function rainConfetti() {
+  const css = getComputedStyle(document.documentElement);
+  const colors = ['--color-electric-lime', '--color-golden-400', '--slot-yellow', '--color-white'].map((name) => css.getPropertyValue(name).trim());
+  for (let n = 0; n < 70; n++) {
+    confetti.push({
+      x: view.left + Math.random() * (view.right - view.left),
+      y: view.top - 20 - Math.random() * 900, // a deep cloud of it, so it rains on and does not come down as a stripe
+      vx: (Math.random() - 0.5) * 260,
+      vy: 120 + Math.random() * 200,
+      fall: 520 + Math.random() * 380,
+      drag: 1.6,
+      w: 12 + Math.random() * 12,
+      h: 7 + Math.random() * 6,
+      turn: Math.random() * 6.28,
+      turnSpeed: (Math.random() - 0.5) * 12,
+      flip: Math.random() * 6.28,
+      flipSpeed: 5 + Math.random() * 6,
       color: colors[n % colors.length],
     });
   }
@@ -585,13 +684,43 @@ function burstSparks(i, count) {
   }
 }
 
-function drawFx(dt) {
-  fx.clearRect(0, 0, STAGE_W, STAGE_H);
-  confetti = confetti.filter((bit) => bit.y < STAGE_H + 60 || bit.vy < 0);
+// Sparks, confetti and the lights of the count: over the whole window, in the stage's pixels.
+function drawFx(dt, party) {
+  fx.setTransform(1, 0, 0, 1, 0, 0);
+  fx.clearRect(0, 0, fx.canvas.width, fx.canvas.height);
+  fx.setTransform(view.zoom, 0, 0, view.zoom, -view.left * view.zoom, -view.top * view.zoom);
+  // A light of the count: it leaves its cover slowly and speeds up into the number, a short tail behind it.
+  if (result?.shown && result.prize && !calm && party < COUNT[result.prize] + FLIGHT) {
+    fx.lineCap = 'round';
+    for (const light of result.lights) {
+      const u = (party - light.at + FLIGHT) / FLIGHT;
+      if (u <= 0 || u >= 1) continue;
+      const at = (e) => {
+        const bx = (light.x + light.tx) / 2 + light.bend;
+        const by = (light.y + light.ty) / 2;
+        return [(1 - e) ** 2 * light.x + 2 * e * (1 - e) * bx + e * e * light.tx, (1 - e) ** 2 * light.y + 2 * e * (1 - e) * by + e * e * light.ty];
+      };
+      const head = at(u * u);
+      const tail = at(Math.max(u * u - 0.16, 0));
+      fx.globalAlpha = Math.min(1, 4 * u);
+      fx.strokeStyle = yellow;
+      fx.lineWidth = 12 - 5 * u;
+      fx.beginPath();
+      fx.moveTo(...tail);
+      fx.lineTo(...head);
+      fx.stroke();
+      fx.fillStyle = white;
+      fx.beginPath();
+      fx.arc(...head, 7 - 2 * u, 0, 6.2832);
+      fx.fill();
+    }
+    fx.globalAlpha = 1;
+  }
+  confetti = confetti.filter((bit) => bit.y < view.bottom + 60 || bit.vy < 0);
   for (const bit of confetti) {
-    bit.vy += 1900 * dt;
+    bit.vy += bit.fall * dt;
     bit.vx *= Math.exp(-1.2 * dt);
-    bit.vy *= Math.exp(-0.6 * dt);
+    bit.vy *= Math.exp(-bit.drag * dt);
     bit.x += bit.vx * dt;
     bit.y += bit.vy * dt;
     bit.turn += bit.turnSpeed * dt;
@@ -624,13 +753,23 @@ function drawFx(dt) {
 }
 
 // Jackpot only: soft beams of light turn slowly behind the drums and run off past the edges of the window.
+// They are half lit while the prize counts and bloom when it lands; the page behind the drums flashes
+// once at each of the two moments.
 function drawRays(t) {
-  const strength = clamp01(t / 0.3) * clamp01((PARTY[100] - t) / 0.6);
+  const landed = t - COUNT[100];
+  const lit = landed < 0 ? 0.55 : 1 + 0.5 * Math.exp(-landed / 0.5);
+  const strength = clamp01(t / 0.3) * clamp01((PARTY[100] - t) / 0.8) * lit;
   if (strength <= 0 && !raysOn) return;
   raysOn = strength > 0;
   const { width, height } = rays.canvas;
+  rays.globalAlpha = 1;
   rays.clearRect(0, 0, width, height);
   if (!raysOn) return;
+  const flash = 0.26 * Math.exp(-t / 0.12) + (landed < 0 ? 0 : 0.34 * Math.exp(-landed / 0.16));
+  if (flash > 0.01) {
+    rays.fillStyle = `rgb(255 255 255 / ${flash.toFixed(3)})`;
+    rays.fillRect(0, 0, width, height);
+  }
   const x = width / 2;
   const y = height / 2 + (REEL_Y - STAGE_H / 2) * stageScale * RAYS_RES; // the reels' axis, in the canvas's pixels
   const reach = 1.2 * Math.hypot(x, Math.max(y, height - y)); // past the farthest corner of the window
@@ -700,23 +839,25 @@ function reveal(now, late) {
     return;
   }
   const jackpot = result.prize === 100;
+  const span = calm ? 0 : COUNT[result.prize];
+  score();
   share(result.game, result.prize);
-  say(`+${result.prize} players`, `for ${covers[result.game].title}`, jackpot ? 'is-win is-jackpot' : 'is-win');
+  say('+0 players', `for ${covers[result.game].title}`, jackpot ? 'is-win is-jackpot' : 'is-win'); // tally() counts it up
+  prizeEl.setAttribute('aria-busy', 'true'); // a screen reader hears the prize once, when it has landed
   sayTimer = setTimeout(invite, SAY_WIN * 1000);
   if (late < 0.25) {
+    // Ticks climb while the prize counts, coins pour under them, and the fanfare comes when it lands.
+    if (!calm) result.beats.forEach((at, step) => blip(at - late, step, result.beats.length));
+    play('coins', { gain: jackpot ? 0.4 : 0.28, delay: 0.1 });
+    play(jackpot ? 'win-jackpot' : 'win-small', { gain: jackpot ? 0.95 : 0.8, delay: Math.max(span - late, 0) });
     if (jackpot) {
-      play('win-jackpot', { gain: 0.9 });
-      play('coins', { gain: 0.5, delay: 0.35 });
-    } else {
-      play('win-small', { gain: 0.8 });
+      play('coins', { gain: 0.5, delay: span + 0.35 });
+      play('coins', { gain: 0.35, rate: 1.12, delay: span + 2.6 });
     }
   }
   if (calm) return;
   for (const i of result.reels) burstSparks(i, jackpot ? 34 : 22);
-  if (jackpot) {
-    burstConfetti();
-    marqueeRate(3);
-  }
+  if (jackpot) marqueeRate(3);
 }
 
 function land() {
@@ -779,15 +920,20 @@ function tick(now) {
   if (phase === 'result' && now >= idleAt) phase = 'idle';
   const party = result?.shown ? (now - revealAt) / 1000 : Infinity;
   const jackpot = result?.shown && result.prize === 100 && !calm;
-  if (boosted && party > 3.2) marqueeRate(1);
-  // The jackpot lands with a short shake of the whole stage.
-  const shaking = jackpot && party >= 0 && party < 0.5;
-  const shake = shaking ? Math.exp(-7 * party) : 0;
-  stage.style.setProperty('--shake-x', `${(shaking ? 8 * shake * Math.sin(55 * party) : 0).toFixed(2)}px`);
-  stage.style.setProperty('--shake-y', `${(shaking ? 5 * shake * Math.cos(47 * party) : 0).toFixed(2)}px`);
+  if (result?.shown && result.prize) tally(party);
+  if (boosted && party > PARTY[100] - 0.4) marqueeRate(1);
+  // The jackpot shakes the whole stage twice: when the reels show it, and harder when the prize lands.
+  const jolt = (since, size) => (since >= 0 && since < 0.5 ? size * Math.exp(-7 * since) : 0);
+  const shake = jackpot ? jolt(party, 0.6) + jolt(party - COUNT[100], 1.2) : 0;
+  stage.style.setProperty('--shake-x', `${(8 * shake * Math.sin(55 * party)).toFixed(2)}px`);
+  stage.style.setProperty('--shake-y', `${(5 * shake * Math.cos(47 * party)).toFixed(2)}px`);
+  // After the cannons, three waves of confetti drift down.
+  if (jackpot && result.landed) {
+    for (const waves = Math.min(3, Math.floor((party - COUNT[100]) / 1.1)); result.rain < waves; result.rain++) rainConfetti();
+  }
   render(now);
   drawRays(jackpot ? party : Infinity);
-  drawFx(Math.min((now - lastFrame) / 1000, 1 / 30));
+  drawFx(Math.min((now - lastFrame) / 1000, 1 / 30), party);
   lastFrame = now;
   const partying = result && party < PARTY[result.prize];
   if (phase === 'spinning' || phase === 'result' || confetti.length || sparks.length || partying) kick();
@@ -805,6 +951,13 @@ function fit() {
   stageScale = scale;
   rays.canvas.width = Math.ceil(innerWidth * RAYS_RES);
   rays.canvas.height = Math.ceil(innerHeight * RAYS_RES);
+  // Sparks and confetti get the whole window too, so they are not cut at the stage's edges.
+  const sharp = Math.min(devicePixelRatio, 2);
+  const side = (innerWidth / scale - STAGE_W) / 2;
+  const above = (innerHeight / scale - STAGE_H) / 2;
+  fx.canvas.width = Math.round(innerWidth * sharp);
+  fx.canvas.height = Math.round(innerHeight * sharp);
+  view = { zoom: scale * sharp, left: -side, top: -above, right: STAGE_W + side, bottom: STAGE_H + above };
   const k = Math.min(Math.max(scale * devicePixelRatio, 0.25), 2);
   canvas.width = Math.round(STAGE_W * k);
   canvas.height = Math.round(VIEW_H * k);
@@ -855,6 +1008,8 @@ window.__slot = {
       titles: reels.map((reel) => covers[reel.games[reel.center]]?.title),
       words: [prizeEl.textContent, noteEl.textContent],
       share: qrEl.classList.contains('is-on') ? shareUrl : '',
+      confetti: confetti.length,
+      sparks: sparks.length,
       audio: audio.state,
       muted,
       sounds: Object.keys(sounds).length,

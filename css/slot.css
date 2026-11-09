@@ -95,7 +95,8 @@ body {
 }
 
 /* A jackpot's beams of light: the whole window, behind the stage, so they run off past its edges
-   whatever the window's shape. The script draws them small and the browser stretches them soft. */
+   whatever the window's shape. The script draws them small and the browser stretches them soft.
+   The canvas of sparks and confetti is the same size, over the stage. */
 .rays {
   position: fixed;
   left: 0;
@@ -114,17 +115,9 @@ body {
   height: 800px;
 }
 
-.fx {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 1920px;
-  height: 1080px;
-  pointer-events: none;
-}
-
 /* The line under the reels, in every state: Cal Sans Regular 156/100%, centred on the stage
-   (the mockup's "+100 players": x 530, w 860). White in every state; the pop is for a win only. */
+   (the mockup's "+100 players": x 530, w 860). White in every state. A win pops in, counts its prize
+   up from zero (the script) and pops harder when the number lands. */
 .prize {
   position: absolute;
   left: 0;
@@ -147,14 +140,21 @@ body {
 }
 
 .prize.is-win {
-  animation: prize-pop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+  animation: prize-pop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
 .prize.is-jackpot {
   text-shadow: 0 0 48px var(--slot-yellow);
+}
+
+.prize.is-landed {
+  animation: prize-land 0.45s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.prize.is-jackpot.is-landed {
   animation:
-    prize-pop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both,
-    prize-beat 0.625s ease-in-out 0.34s 5;
+    prize-land 0.45s cubic-bezier(0.2, 1.5, 0.4, 1),
+    prize-beat 0.625s ease-in-out 0.45s 7;
 }
 
 /* The smaller line right under it. The padding is room for the letters' tails: the line is as tall
@@ -196,6 +196,11 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+@keyframes prize-land {
+  from { transform: scale(1.24); }
+  to { transform: scale(1); }
+}
+
 @keyframes prize-beat {
   50% { transform: scale(1.06); }
 }
@@ -203,5 +208,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .marquee__track { animation-play-state: paused; }
   .prize.is-win,
-  .prize.is-jackpot { animation: none; }
+  .prize.is-landed,
+  .prize.is-jackpot.is-landed { animation: none; }
 }
