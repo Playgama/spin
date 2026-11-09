@@ -30,7 +30,8 @@ const GAMES_PER_SPIN = 6;
 const TEX = 800; // cover texture side; the covers are 800×800
 
 // Spin choreography, in seconds and belt pixels. Each reel travels a fixed number of covers,
-// so the timing never changes; the randomness is in which games sit on the belt.
+// so the timing is the same every spin, but for the third reel's anticipation (below); the randomness
+// is in which games sit on the belt.
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TRAVEL = [12, 21, 30]; // every one lands LAND slots ahead of the cover it started on
 const LAND = 3;
@@ -49,6 +50,16 @@ const cruise = (i) => (TRAVEL[i] * PITCH + OVERSHOOT + WIND) / SPEED - (T_ACCEL 
 const STOP = TRAVEL.map((_, i) => i * STAGGER + T_WIND + T_ACCEL + cruise(i) + T_DECEL);
 const REVEAL = STOP[2] + 0.18;
 const SETTLE = STOP[2] + T_SETTLE;
+
+// Anticipation. When the first two reels stop on the same game, the third does not stop on time: it
+// makes one more turn of its belt and slows all the way, so its last covers pass one by one. The spin
+// is a win either way: the pair is already there, and the third reel decides between +50 and +100.
+const TEASE_AT = STOP[1] - 2 * STAGGER + 0.12; // on the third reel's own clock: a beat after the second has stopped
+const TEASE_TRAVEL = TRAVEL[2] + SLOTS;
+const TEASE_EASE = 2.5; // how hard it slows: its speed falls as (time left) ^ 1.5
+const TEASE_FROM = -WIND + (SPEED * T_ACCEL) / 2 + SPEED * (TEASE_AT - T_WIND - T_ACCEL); // belt travel by then
+const TEASE_RUN = TEASE_TRAVEL * PITCH + OVERSHOOT - TEASE_FROM;
+const TEASE_TIME = (TEASE_EASE * TEASE_RUN) / SPEED; // so the slowing starts at the speed the reel has
 
 const PRIZE = { 3: 100, 2: 50 }; // matching reels → players
 const HOLD = { 0: 0, 50: 1.2, 100: 2 }; // seconds before the next spin may start: the prize has landed by then
@@ -94,23 +105,34 @@ function tokenColor(name) {
 
 // ---------- Reel motion ----------
 
-// Belt travel and speed of reel `i`, `t` seconds after it was launched.
-function motion(i, t) {
+// Belt travel and speed of reel `i`, `t` seconds after it was launched. `teased` is the third reel
+// of a spin with anticipation.
+function motion(i, t, teased = false) {
   if (t <= 0) return [0, 0];
-  if (t < T_WIND) {
-    const s = Math.sin((Math.PI / 2) * (t / T_WIND));
-    return [-WIND * s * s, 0];
+  let end = TRAVEL[i] * PITCH;
+  if (teased && t >= TEASE_AT) {
+    t -= TEASE_AT;
+    if (t < TEASE_TIME) {
+      const left = 1 - t / TEASE_TIME;
+      return [TEASE_FROM + TEASE_RUN * (1 - left ** TEASE_EASE), SPEED * left ** (TEASE_EASE - 1)];
+    }
+    t -= TEASE_TIME;
+    end = TEASE_TRAVEL * PITCH;
+  } else {
+    if (t < T_WIND) {
+      const s = Math.sin((Math.PI / 2) * (t / T_WIND));
+      return [-WIND * s * s, 0];
+    }
+    t -= T_WIND;
+    if (t < T_ACCEL) return [-WIND + (SPEED * t * t) / (2 * T_ACCEL), (SPEED * t) / T_ACCEL];
+    t -= T_ACCEL;
+    let off = -WIND + (SPEED * T_ACCEL) / 2;
+    if (t < cruise(i)) return [off + SPEED * t, SPEED];
+    t -= cruise(i);
+    off += SPEED * cruise(i);
+    if (t < T_DECEL) return [off + SPEED * t - (SPEED * t * t) / (2 * T_DECEL), SPEED * (1 - t / T_DECEL)];
+    t -= T_DECEL;
   }
-  t -= T_WIND;
-  if (t < T_ACCEL) return [-WIND + (SPEED * t * t) / (2 * T_ACCEL), (SPEED * t) / T_ACCEL];
-  t -= T_ACCEL;
-  let off = -WIND + (SPEED * T_ACCEL) / 2;
-  if (t < cruise(i)) return [off + SPEED * t, SPEED];
-  t -= cruise(i);
-  off += SPEED * cruise(i);
-  if (t < T_DECEL) return [off + SPEED * t - (SPEED * t * t) / (2 * T_DECEL), SPEED * (1 - t / T_DECEL)];
-  t -= T_DECEL;
-  const end = TRAVEL[i] * PITCH;
   if (t >= T_SETTLE) return [end, 0];
   const wd = SPRING_W * Math.sqrt(1 - SPRING_Z * SPRING_Z);
   const swing = Math.exp(-SPRING_Z * SPRING_W * t) * (Math.cos(wd * t) + ((SPRING_Z * SPRING_W) / wd) * Math.sin(wd * t));
@@ -329,6 +351,8 @@ let ready = false; // the belts hold the games of the coming spin
 let queued = false; // a spin was asked for before the belts were ready
 let next = null; // { targets }: the game each reel will stop on
 let result = null; // { prize, reels, game, shown } of the current spin; a win adds { beats, lights, landed, rain }
+let tease = false; // this spin has anticipation: the first two reels match
+let plan = { stop: STOP, reveal: REVEAL, settle: SETTLE }; // when this spin's reels stop, in seconds
 let spinStart = 0;
 let revealAt = 0;
 let idleAt = 0;
@@ -565,7 +589,7 @@ function celebrate(i, t) {
   const lag = jackpot ? i * 0.09 : 0;
   const landed = t - COUNT[result.prize] - lag;
   const pulse = landed < 0 ? beat(t - 0.05 - lag, 0.4, 5) : beat(landed, 0.625, jackpot ? 7 : 2);
-  const glow = clamp01(t / 0.12) * (0.55 + 0.45 * pulse);
+  const glow = (tease ? 1 : clamp01(t / 0.12)) * (0.55 + 0.45 * pulse); // after anticipation the light is on already
   const sweep = landed < 0 ? t - lag : jackpot && t < PARTY[100] ? landed % 1.2 : landed;
   const shine = sweep >= 0 && sweep < 0.6 ? -1.3 + (sweep / 0.6) * 2.6 : 9;
   const jolt = (since) => (since < 0 ? 0 : 10 * Math.sin(2 * Math.PI * 3 * since) * Math.exp(-3 * since));
@@ -806,6 +830,9 @@ function spin() {
   audio.resume();
   ready = false;
   result = judge(next.targets);
+  tease = !calm && next.targets[0] === next.targets[1];
+  const last = tease ? 2 * STAGGER + TEASE_AT + TEASE_TIME : STOP[2];
+  plan = { stop: [STOP[0], STOP[1], last], reveal: last + 0.18, settle: last + T_SETTLE };
   for (const reel of reels) reel.hit = false;
   say();
   if (boosted) marqueeRate(1);
@@ -816,9 +843,33 @@ function spin() {
   kick();
 }
 
+// The sound of anticipation, `wait` seconds from now: a tone that climbs until the third reel stops,
+// and a click for each of its last covers as it passes the middle, further and further apart.
+function teaseSound(wait) {
+  if (muted) return;
+  const at = audio.currentTime + Math.max(wait, 0);
+  const tone = audio.createOscillator();
+  const volume = audio.createGain();
+  tone.type = 'triangle';
+  tone.frequency.setValueAtTime(196, at);
+  tone.frequency.exponentialRampToValueAtTime(523.25, at + TEASE_TIME);
+  volume.gain.setValueAtTime(0, at);
+  volume.gain.linearRampToValueAtTime(0.09, at + TEASE_TIME);
+  volume.gain.linearRampToValueAtTime(0, at + TEASE_TIME + 0.08);
+  tone.connect(volume).connect(audio.destination);
+  tone.start(at);
+  tone.stop(at + TEASE_TIME + 0.1);
+  for (let cover = TEASE_TRAVEL - 8; cover < TEASE_TRAVEL; cover++) {
+    const passed = 1 - (1 - (cover * PITCH - TEASE_FROM) / TEASE_RUN) ** (1 / TEASE_EASE);
+    play('reel-stop', { gain: 0.3, rate: 1.7, delay: Math.max(wait, 0) + TEASE_TIME * passed });
+  }
+  whirr?.source.playbackRate.setTargetAtTime(0.55, at, TEASE_TIME / 3); // the whirr winds down with the reel
+}
+
 // Reel `i` hit its stop `late` seconds ago.
 function onStop(i, late) {
   if (late < 0.25) play('reel-stop', { gain: 0.8, rate: 1 + i * 0.05 + (Math.random() - 0.5) * 0.04 });
+  if (i === 1 && tease && late < 0.25) teaseSound(2 * STAGGER + TEASE_AT - STOP[1] - late);
   if (!whirr) return;
   if (i < 2) {
     whirr.volume.gain.setTargetAtTime([0.36, 0.22][i], audio.currentTime, 0.04);
@@ -886,8 +937,13 @@ function render(now) {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   gl.uniform1f(U.shaftPass, 0);
   reels.forEach((reel, i) => {
-    const [off, speed] = phase === 'spinning' ? motion(i, t - i * STAGGER) : [0, 0];
-    const [dim, glow, shine, nudge] = celebrate(i, party);
+    const [off, speed] = phase === 'spinning' ? motion(i, t - i * STAGGER, tease && i === 2) : [0, 0];
+    let [dim, glow, shine, nudge] = celebrate(i, party);
+    // Anticipation: the two reels that match light up, and the frame of the third one pulses while it slows.
+    if (tease && phase === 'spinning' && !result.shown && t > STOP[1]) {
+      const on = clamp01((t - STOP[1] - 0.1) / 0.25);
+      glow = on * (i === 2 ? 0.3 + 0.3 * Math.sin(Math.PI * 2.5 * (t - STOP[1])) ** 2 : 0.5);
+    }
     const pos = (((reel.center * PITCH + off + nudge) % BELT) + BELT) % BELT;
     // The drum's far edges sit closer to the stage centre than its front ones.
     const left = REEL_X[i] - STAGE_W / 2 - DRUM_HALF;
@@ -910,12 +966,12 @@ function tick(now) {
   if (phase === 'spinning') {
     const t = (now - spinStart) / 1000;
     reels.forEach((reel, i) => {
-      if (reel.hit || t < STOP[i]) return;
+      if (reel.hit || t < plan.stop[i]) return;
       reel.hit = true;
-      onStop(i, t - STOP[i]);
+      onStop(i, t - plan.stop[i]);
     });
-    if (!result.shown && t >= REVEAL) reveal(now, t - REVEAL);
-    if (t >= SETTLE) land();
+    if (!result.shown && t >= plan.reveal) reveal(now, t - plan.reveal);
+    if (t >= plan.settle) land();
   }
   if (phase === 'result' && now >= idleAt) phase = 'idle';
   const party = result?.shown ? (now - revealAt) / 1000 : Infinity;
@@ -925,8 +981,9 @@ function tick(now) {
   // The jackpot shakes the whole stage twice: when the reels show it, and harder when the prize lands.
   const jolt = (since, size) => (since >= 0 && since < 0.5 ? size * Math.exp(-7 * since) : 0);
   const shake = jackpot ? jolt(party, 0.6) + jolt(party - COUNT[100], 1.2) : 0;
-  stage.style.setProperty('--shake-x', `${(8 * shake * Math.sin(55 * party)).toFixed(2)}px`);
-  stage.style.setProperty('--shake-y', `${(5 * shake * Math.cos(47 * party)).toFixed(2)}px`);
+  // Outside a win `party` is infinite and its sine is not a number: such a value would switch the stage's whole transform off.
+  stage.style.setProperty('--shake-x', `${(shake ? 8 * shake * Math.sin(55 * party) : 0).toFixed(2)}px`);
+  stage.style.setProperty('--shake-y', `${(shake ? 5 * shake * Math.cos(47 * party) : 0).toFixed(2)}px`);
   // After the cannons, three waves of confetti drift down.
   if (jackpot && result.landed) {
     for (const waves = Math.min(3, Math.floor((party - COUNT[100]) / 1.1)); result.rain < waves; result.rain++) rainConfetti();
@@ -1015,7 +1072,10 @@ window.__slot = {
       sounds: Object.keys(sounds).length,
     };
   },
-  timing: { STOP, REVEAL, SETTLE },
+  get timing() {
+    return { STOP: plan.stop, REVEAL: plan.reveal, SETTLE: plan.settle, TEASE: tease ? TEASE_TIME : 0 }; // of the current spin
+  },
+  motion,
   prepare,
   spin,
   step(seconds) {
