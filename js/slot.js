@@ -66,7 +66,7 @@ const HOLD = { 0: 0, 50: 1.2, 100: 2 }; // seconds before the next spin may star
 const COUNT = { 50: 1, 100: 1.8 }; // seconds a prize counts up from zero before it lands
 const STEPS = { 50: 16, 100: 30 }; // steps of that count; each has its own tick and its own light
 const PARTY = { 0: 0, 50: 3, 100: 6.8 }; // seconds the win animation runs
-const FORCE = { jackpot: [0, 0, 0], pair: [0, 0, 1], none: [0, 1, 2] }; // test hook only
+const FORCE = { jackpot: [0, 0, 0], pair: [0, 0, 1], none: [0, 1, 2] }; // which of the six games each reel stops on; a real pair takes one of PAIRS
 
 // The words under the reels: a headline and the line under it. A win's are made from its prize and game.
 const WORDS = {
@@ -447,13 +447,35 @@ async function paint(places) {
   }
 }
 
+// How often a spin wins: out of every 12 spins, one gives +100, three give +50, eight give nothing.
+// The outcomes are drawn from a shuffled bag of those 12, not rolled one by one, so there are no long
+// droughts and no runs; and two wins never come one right after the other.
+const BAG = { jackpot: 1, pair: 3, none: 8 };
+const PAIRS = [[0, 0, 1], [1, 0, 0], [0, 1, 0]]; // which two reels match, with one of the six games each
+let bag = [];
+let lastWon = false;
+
+function draw() {
+  const win = (outcome) => outcome !== 'none';
+  while (!bag.length) {
+    const deck = shuffle(Object.entries(BAG).flatMap(([outcome, count]) => Array(count).fill(outcome)));
+    // Drawn from the end: no two wins side by side, nor a win first after a win.
+    if (deck.every((outcome, i) => !(win(outcome) && win(deck[i + 1] ?? 'none'))) && !(lastWon && win(deck.at(-1)))) bag = deck;
+  }
+  const outcome = bag.pop();
+  lastWon = win(outcome);
+  return outcome;
+}
+
 // Pick the six games of the coming spin and where each reel will stop, then put them on the belts.
-// Every reel stops on one of the six with equal chance, independently of the others.
+// The outcome comes from the bag (or the test hook); which of the six games it falls on is random.
 // The three covers on show stay; the six slots behind the drum get the new games.
 async function prepare(force) {
   ready = false;
+  const outcome = force || draw();
   const six = deal(GAMES_PER_SPIN);
-  const targets = force ? FORCE[force].map((n) => six[n]) : reels.map(() => six[Math.floor(Math.random() * six.length)]);
+  const pattern = outcome === 'pair' && !force ? PAIRS[Math.floor(Math.random() * PAIRS.length)] : FORCE[outcome];
+  const targets = pattern.map((n) => six[n]);
   const places = new Map(six.map((game) => [game, []]));
   reels.forEach((reel, r) => {
     const others = shuffle(six.filter((game) => game !== targets[r]));
@@ -469,7 +491,7 @@ async function prepare(force) {
   } catch {
     // A cover did not load or decode: deal other games instead of leaving the machine stuck.
     await new Promise((done) => setTimeout(done, 1000));
-    return prepare(force);
+    return prepare(outcome); // the same outcome, on other games
   }
   next = { targets };
   ready = true;
