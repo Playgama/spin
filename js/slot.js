@@ -585,7 +585,8 @@ function say(headline = '', note = '', mood = '') {
   prizeEl.removeAttribute('aria-busy');
   noteEl.textContent = note;
   noteEl.classList.toggle('is-on', Boolean(note));
-  qrEl.classList.toggle('is-on', Boolean(mood));
+  noteEl.classList.toggle('is-quip', mood === 'is-quip');
+  qrEl.classList.toggle('is-on', mood.includes('is-win'));
 }
 
 // Back to the invitation. The light of the last win goes out with its words.
@@ -868,7 +869,7 @@ function spin() {
   const last = tease ? 2 * STAGGER + TEASE_AT + TEASE_TIME : STOP[2];
   plan = { stop: [STOP[0], STOP[1], last], reveal: last + 0.18, settle: last + T_SETTLE };
   for (const reel of reels) reel.hit = false;
-  say('', quip(QUIPS)); // the quip under the turning reels
+  say('', quip(QUIPS), 'is-quip'); // the quip under the turning reels
   teased = false;
   if (boosted) marqueeRate(1);
   phase = 'spinning';
@@ -1013,7 +1014,7 @@ function tick(now) {
   const jackpot = result?.shown && result.prize === 100 && !calm;
   if (tease && !teased && phase === 'spinning' && !result.shown && (now - spinStart) / 1000 > STOP[1] + 0.1) {
     teased = true;
-    say('', quip(TEASE_QUIPS));
+    say('', quip(TEASE_QUIPS), 'is-quip');
   }
   if (result?.shown && result.prize) tally(party);
   if (boosted && party > PARTY[100] - 0.4) marqueeRate(1);
@@ -1054,6 +1055,8 @@ function fit() {
   fx.canvas.width = Math.round(innerWidth * sharp);
   fx.canvas.height = Math.round(innerHeight * sharp);
   view = { zoom: scale * sharp, left: -side, top: -above, right: STAGE_W + side, bottom: STAGE_H + above };
+  // A quip stands halfway between the bottom of the drums and the bottom of the window.
+  stage.style.setProperty('--quip-y', `${((REEL_Y + EDGE_Y + view.bottom) / 2).toFixed(1)}px`);
   const k = Math.min(Math.max(scale * devicePixelRatio, 0.25), 2);
   canvas.width = Math.round(STAGE_W * k);
   canvas.height = Math.round(VIEW_H * k);
