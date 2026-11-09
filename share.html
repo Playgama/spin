@@ -8,12 +8,14 @@
   <link rel="stylesheet" href="shared/css/typography.css">
   <link rel="stylesheet" href="shared/css/components.css">
   <!-- ?v=…: raise the number with every change of these files. A browser may keep the old ones for ten minutes after the site is updated, and an old script with a new page is a broken machine. -->
-  <link rel="stylesheet" href="css/share.css?v=6">
+  <link rel="stylesheet" href="css/share.css?v=7">
 </head>
 <body>
   <!-- Opened on a phone from the QR code of a win on the slot: share.html?g=<game id>&p=<players>. -->
   <main class="page">
     <img class="brand" src="assets/strip/playgama-pill.svg" alt="Playgama">
+    <!-- The squircle of the game covers on playgama.ai: their path, applied the same way (clip-path: url(#…)). -->
+    <svg class="defs" aria-hidden="true"><clipPath id="cover-squircle" clipPathUnits="objectBoundingBox" transform="scale(0.01)"><path d="M14.223 3.223Q22 0 50 0T85.777 3.223Q93.554 6.446 96.777 14.223T100 50Q100 78 96.777 85.777T85.777 96.777Q78 100 50 100T14.223 96.777Q6.446 93.554 3.223 85.777T0 50Q0 22 3.223 14.223T14.223 3.223Z"/></clipPath></svg>
     <img class="cover" id="cover" alt="" width="128" height="128" hidden>
     <h1 class="gain heading-promo-xxxl" id="gain"></h1>
     <p class="whom heading-promo-m" id="whom"></p>
@@ -38,6 +40,6 @@
       <p class="hint body-s">On LinkedIn, paste the text: it's already copied.</p>
     </div>
   </main>
-  <script type="module" src="js/share.js?v=7"></script>
+  <script type="module" src="js/share.js?v=8"></script>
 </body>
 </html>

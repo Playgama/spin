@@ -32,11 +32,18 @@ body {
 /* The logo alone, as in the TV strip. */
 .brand { height: 32px; }
 
-/* The cover's corners are the TV's: 72 of 572. Small enough for the buttons to fit a phone screen. */
+/* The cover is a squircle, like the game covers on playgama.ai (the path is in share.html).
+   Small enough for the buttons to fit a phone screen. */
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
 .cover {
   margin-top: var(--space-16);
-  border-radius: var(--radius-16);
   object-fit: cover;
+  clip-path: url(#cover-squircle);
 }
 
 .gain {

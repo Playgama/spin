@@ -25,7 +25,7 @@ async function start() {
   $('cover').alt = game.title;
   $('cover').hidden = false;
   $('gain').textContent = `+${players} players`;
-  $('whom').textContent = `for ${game.title}, thanks to you`;
+  $('whom').textContent = game.title;
   $('post').textContent = post;
   $('ready').hidden = false;
 
