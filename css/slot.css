@@ -2,6 +2,17 @@
    Figma: Marketing / Confa / TV - 1 (6421:4871), 1920×1080.
    Every size below is in the mockup's own pixels: the stage is scaled to fit the screen. */
 
+/* The library's typography.css loads Cal Sans from the root of the site ("/assets/fonts/…"). When this
+   page lives in a folder of a site (…/spin/), nothing is at that address, so the same face is given
+   again from here, next to the page. */
+@font-face {
+  font-family: 'CalSans';
+  src: url('../assets/fonts/CalSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Not a library token: the prize yellow of the mockup (#ffe481). */
   --slot-yellow: #ffe481;
@@ -77,8 +88,21 @@ body {
   height: 60px;
 }
 
+/* The strip runs from left to right. */
 @keyframes marquee {
-  to { transform: translateX(calc(-1 * var(--marquee-period))); }
+  from { transform: translateX(calc(-1 * var(--marquee-period))); }
+  to { transform: translateX(0); }
+}
+
+/* A jackpot's beams of light: the whole window, behind the stage, so they run off past its edges
+   whatever the window's shape. The script draws them small and the browser stretches them soft. */
+.rays {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 /* Reels are drawn in WebGL; the canvas spans the stage, 400px above and below the reel axis (y = 484). */
@@ -100,8 +124,7 @@ body {
 }
 
 /* The line under the reels, in every state: Cal Sans Regular 156/100%, centred on the stage
-   (the mockup's "+100 players": x 530, w 860). White when it invites or reports no match;
-   the prize yellow and the pop are for a win only. */
+   (the mockup's "+100 players": x 530, w 860). White in every state; the pop is for a win only. */
 .prize {
   position: absolute;
   left: 0;
@@ -124,7 +147,6 @@ body {
 }
 
 .prize.is-win {
-  color: var(--slot-yellow);
   animation: prize-pop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both;
 }
 
@@ -135,13 +157,15 @@ body {
     prize-beat 0.625s ease-in-out 0.34s 5;
 }
 
-/* The smaller line right under it. */
+/* The smaller line right under it. The padding is room for the letters' tails: the line is as tall
+   as its font size, and without it "overflow: hidden" cuts them off. */
 .note {
   position: absolute;
   left: 88px;
   right: 88px;
   top: 1016px;
   margin: 0;
+  padding-bottom: 8px;
   overflow: hidden;
   color: var(--color-white);
   text-align: center;

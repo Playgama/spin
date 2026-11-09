@@ -459,6 +459,18 @@ let confetti = [];
 let sparks = [];
 let boosted = false;
 let raysOn = false;
+let stageScale = 1;
+
+// A jackpot's beams of light: two sets that turn against each other, wide and thin. `turn` is in
+// radians a second, `width` is half a beam's width as a share of the angle between two beams, and
+// `lights` are the beams' brightnesses in turn. The canvas is a quarter of the window's size and the
+// browser stretches it: that is what makes the beams soft.
+const RAYS_RES = 0.25;
+const BEAMS = [
+  { count: 7, turn: 0.1, width: 0.16, lights: [1, 0.55, 0.8] },
+  { count: 11, turn: -0.07, width: 0.07, lights: [0.7, 1, 0.45, 0.85] },
+];
+const warm = tokenColor('--slot-yellow').map((part) => Math.round(part * 255)).join(' ');
 
 for (let n = 0; n < 20; n++) {
   marquee.insertAdjacentHTML(
@@ -482,7 +494,7 @@ let sayTimer = 0;
 let shareUrl = '';
 
 // Put up a headline and the line under it, or nothing. `mood` is "is-win" (with "is-jackpot")
-// for a prize: only a prize gets the yellow, the pop and the QR code.
+// for a prize: only a prize gets the pop and the QR code.
 function say(headline = '', note = '', mood = '') {
   clearTimeout(sayTimer);
   prizeEl.textContent = headline;
@@ -611,24 +623,36 @@ function drawFx(dt) {
   }
 }
 
-// Jackpot only: slow rays of light turn behind the drums.
+// Jackpot only: soft beams of light turn slowly behind the drums and run off past the edges of the window.
 function drawRays(t) {
   const strength = clamp01(t / 0.3) * clamp01((PARTY[100] - t) / 0.6);
   if (strength <= 0 && !raysOn) return;
   raysOn = strength > 0;
-  rays.clearRect(0, 0, STAGE_W, STAGE_H);
+  const { width, height } = rays.canvas;
+  rays.clearRect(0, 0, width, height);
   if (!raysOn) return;
-  const light = rays.createRadialGradient(STAGE_W / 2, REEL_Y, 200, STAGE_W / 2, REEL_Y, 1050);
-  light.addColorStop(0, 'rgb(255 255 255 / 0.22)');
+  const x = width / 2;
+  const y = height / 2 + (REEL_Y - STAGE_H / 2) * stageScale * RAYS_RES; // the reels' axis, in the canvas's pixels
+  const reach = 1.2 * Math.hypot(x, Math.max(y, height - y)); // past the farthest corner of the window
+  const light = rays.createRadialGradient(x, y, 0, x, y, reach);
+  light.addColorStop(0, `rgb(${warm} / 0.05)`); // warm at the drums, white and gone far away
+  light.addColorStop(0.4, 'rgb(255 255 255 / 0.025)');
   light.addColorStop(1, 'rgb(255 255 255 / 0)');
   rays.fillStyle = light;
-  rays.globalAlpha = strength;
-  for (let n = 0; n < 14; n++) {
-    const from = t * 0.3 + (n * Math.PI) / 7;
-    rays.beginPath();
-    rays.moveTo(STAGE_W / 2, REEL_Y);
-    rays.arc(STAGE_W / 2, REEL_Y, 1100, from, from + Math.PI / 14);
-    rays.fill();
+  for (const beams of BEAMS) {
+    const between = (2 * Math.PI) / beams.count;
+    for (let n = 0; n < beams.count; n++) {
+      const middle = t * beams.turn + n * between;
+      rays.globalAlpha = strength * beams.lights[n % beams.lights.length];
+      // Five wedges, one inside another: bright along the middle of the beam, fading to its sides.
+      for (let layer = 1; layer <= 5; layer++) {
+        const half = (beams.width * between * layer) / 5;
+        rays.beginPath();
+        rays.moveTo(x, y);
+        rays.arc(x, y, reach, middle - half, middle + half);
+        rays.fill();
+      }
+    }
   }
 }
 
@@ -778,6 +802,9 @@ function kick() {
 function fit() {
   const scale = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
   document.documentElement.style.setProperty('--slot-scale', scale);
+  stageScale = scale;
+  rays.canvas.width = Math.ceil(innerWidth * RAYS_RES);
+  rays.canvas.height = Math.ceil(innerHeight * RAYS_RES);
   const k = Math.min(Math.max(scale * devicePixelRatio, 0.25), 2);
   canvas.width = Math.round(STAGE_W * k);
   canvas.height = Math.round(VIEW_H * k);
@@ -796,7 +823,8 @@ addEventListener('keydown', (event) => {
 
 async function start() {
   fit();
-  document.fonts.load('400 156px CalSans');
+  // In a folder of a site the library's own address of the font is empty (see slot.css): that miss is expected.
+  document.fonts.load('400 156px CalSans').catch(() => {});
   // Never a remembered copy of the list: after the set of games changes, an old list names files that are gone.
   covers = await (await fetch('assets/covers/covers.json', { cache: 'no-cache' })).json();
   const places = new Map();

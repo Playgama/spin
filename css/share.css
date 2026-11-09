@@ -1,6 +1,17 @@
 /* Share page of the Boost slot: a phone opens it from the QR code of a win.
    The same world as the TV screen: brand purple, Cal Sans, the prize in yellow. */
 
+/* The library's typography.css loads Cal Sans from the root of the site ("/assets/fonts/…"). When this
+   page lives in a folder of a site (…/spin/), nothing is at that address, so the same face is given
+   again from here, next to the page. */
+@font-face {
+  font-family: 'CalSans';
+  src: url('../assets/fonts/CalSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* The prize yellow of the TV mockup, as in slot.css. Not a library token. */
   --slot-yellow: #ffe481;
