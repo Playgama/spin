@@ -213,9 +213,11 @@ out vec4 o_color;
 uniform sampler2DArray u_belt;
 uniform float u_shaftPass; // 1: draw the shaft between the drums; 0: draw one drum
 uniform float u_cx;       // drum centre, px from the stage centre
+uniform float u_zoom;     // the drum's size: above 1 it leans out at the viewer, below 1 it steps back
 uniform float u_pos;      // belt position under the reel axis, px
 uniform float u_blur;     // motion smear along the belt, px
 uniform float u_dim;      // brightness: below 1 for a reel that did not match
+uniform float u_body;     // 1: the drum under the covers is there; 0: only the covers are
 uniform float u_glow;     // 0..1: win light of this reel
 uniform float u_shine;    // where the light sweep is on the cover, in cover widths from its centre
 uniform float u_seed;
@@ -256,7 +258,7 @@ vec2 plastic(float m) {
 void main() {
   // Ray from the camera through this pixel, hit against a cylinder along x. Lengths are in drum radii.
   float rho = mix(1.0, 0.975, u_shaftPass);
-  vec2 s = v_pos / R;
+  vec2 s = (vec2(u_cx, 0.0) + (v_pos - vec2(u_cx, 0.0)) / u_zoom) / R;
   float f = K - 1.0;
   float a = s.y * s.y + f * f;
   float disc = K * K * f * f - a * (K * K - rho * rho);
@@ -320,7 +322,8 @@ void main() {
   vec3 drum = mix(u_drum, u_hot, 0.5 * u_glow);
   float shine = 0.5 * exp(-60.0 * (sweep - u_shine) * (sweep - u_shine));
   vec3 lit = cover.rgb * (1.0 + 0.1 * u_glow) + cover.a * shine;
-  vec3 color = mix((drum * (1.0 - cover.a) + lit) * gloss.x, vec3(1.0), gloss.y); // the gloss veils, it never burns out
+  float solid = mix(cover.a, 1.0, u_body); // without its drum a reel is only as solid as its covers
+  vec3 color = mix((drum * (1.0 - cover.a) * u_body + lit) * gloss.x, vec3(solid), gloss.y); // the gloss veils, it never burns out
 
   // The winning cover itself, the one on the reel axis, gets a frame of light and a glow around it.
   float centre = floor(u_pos / PITCH + 0.5);
@@ -330,7 +333,7 @@ void main() {
   float aura = 0.8 * exp(-max(dc, 0.0) / 16.0) * step(0.0, dc);
   color = mix(color, u_hot, u_glow * max(frame, aura));
 
-  o_color = vec4(color * u_dim, 1.0) * fade * body;
+  o_color = vec4(color * u_dim, solid) * fade * body;
 }`;
 
 function compile(type, source) {
@@ -349,7 +352,7 @@ if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProg
 gl.useProgram(program);
 
 const U = {};
-for (const name of ['half', 'belt', 'shaftPass', 'cx', 'pos', 'blur', 'dim', 'glow', 'shine', 'seed', 'drum', 'shaft', 'hot']) {
+for (const name of ['half', 'belt', 'shaftPass', 'cx', 'zoom', 'pos', 'blur', 'dim', 'body', 'glow', 'shine', 'seed', 'drum', 'shaft', 'hot']) {
   U[name] = gl.getUniformLocation(program, `u_${name}`);
 }
 gl.uniform2f(U.half, STAGE_W / 2, VIEW_H / 2);
@@ -408,6 +411,8 @@ let luring = false; // attract mode is on
 let lureTimer = 0;
 let lureCount = 0;
 let lureLight = 0; // attract mode's light, fading in and out: 0…1
+let antic = null; // the attract scene on stage: { scene, start, sounds }
+let carry = null; // { at, pose }: the pose a press cut a scene at; it melts away under the spin
 let spinStart = 0;
 let revealAt = 0;
 let idleAt = 0;
@@ -702,15 +707,21 @@ function invite() {
   }
   say(...WORDS.idle);
   clearTimeout(lureTimer);
-  lureTimer = setTimeout(lure, LURE_EVERY * 1000);
+  lureTimer = setTimeout(lure, (show === null ? LURE_EVERY : 2) * 1000);
 }
 
 // An attract spin. The slot each reel will stop on gets a new cover, three different games; after the spin
 // the waiting outcome is laid on the belts again (land → lay).
 async function lure() {
   clearTimeout(lureTimer); // one chain of attract spins, however lure() was called
+  settle();
   if (phase !== 'idle' || !ready) {
     lureTimer = setTimeout(lure, 1000);
+    return;
+  }
+  if (show !== null && !calm) {
+    const names = Object.keys(SCENES);
+    act(SCENES[show] ? show : names[lureCount++ % names.length]);
     return;
   }
   luring = true;
@@ -996,6 +1007,196 @@ function drawRays(t, lure = 0, clock = 0) {
   }
 }
 
+// ---------- Attract mode's scenes ----------
+
+// An attract cycle can be a scene instead of a spin: the reels move a little by themselves and come back
+// to where they were. A scene says what it does to reel `i`, `t` seconds in: `off` (belt travel, px),
+// `dx` (shift along the shaft, px), `zoom`, `dim`, `glow`, `shine` and `bare` (1: the drum under the covers is gone). No scene turns a belt by more than
+// two thirds of a cover, so the coming spin stays hidden and no new cover comes to rest on the reel
+// axis. A press cuts a scene at once: the spin starts, and the scene's pose melts away under it.
+// Try them with ?scenes (one after another; keys 1 to 7 start one) or ?scenes=wave (that one only).
+const REST = { off: 0, dx: 0, zoom: 1, dim: 1, glow: 0, shine: 9, bare: 0 };
+const show = new URLSearchParams(location.search).get('scenes'); // null: no scenes, the attract spin only
+
+const smooth = (u) => {
+  u = clamp01(u);
+  return u * u * (3 - 2 * u);
+};
+
+// A value led through `keys` ([second, value], in order), eased between them.
+function lead(t, keys) {
+  for (let n = 1; n < keys.length; n++) {
+    const [t0, v0] = keys[n - 1];
+    const [t1, v1] = keys[n];
+    if (t < t1) return v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+  }
+  return keys.at(-1)[1];
+}
+
+// A fall from `from` to rest in `time` seconds: it speeds up, lands and bounces like a reel at its stop.
+function fall(t, from, time) {
+  if (t < time) return from * (1 - clamp01(t / time) ** 2);
+  t -= time;
+  if (t > 1) return 0;
+  const wd = SPRING_W * Math.sqrt(1 - SPRING_Z * SPRING_Z);
+  return ((-2 * from) / time / wd) * Math.exp(-SPRING_Z * SPRING_W * t) * Math.sin(wd * t);
+}
+
+// The shuffle: pairs of drums change places, each pair quicker than the one before. [from, to (seconds), two places]
+const SWAPS = [[0.2, 0.8, 0, 1], [0.9, 1.4, 1, 2], [1.5, 1.92, 0, 2], [2, 2.36, 0, 1]];
+// Newton's cradle: the first knock, the time of one swing, the draw-back, and how much a knock keeps.
+const CRADLE = { hit: 1.05, swing: 0.5, draw: 0.36 * PITCH, keep: 0.8, swings: 5 };
+
+const SCENES = {
+  // The reels creep one way and drop back, then the other way: they can't wait.
+  tease: {
+    span: 3.8,
+    words: ['Psst…', 'These reels are itching to spin'],
+    at(i, t) {
+      t -= i * 0.14;
+      if (t < 1) return { off: lead(t, [[0.1, 0], [0.85, 0.34 * PITCH]]) };
+      if (t < 1.9) return { off: fall(t - 1, 0.34 * PITCH, 0.22) };
+      if (t < 2.5) return { off: lead(t, [[1.9, 0], [2.35, -0.22 * PITCH]]) };
+      return { off: fall(t - 2.5, -0.22 * PITCH, 0.2) };
+    },
+  },
+  // A false start: the reels wind up and lunge as for a spin, hang there, and think better of it.
+  bluff: {
+    span: 2.7,
+    words: ['Just kidding', 'They only spin for real when you press'],
+    sounds: [[0, 'lever-start', { gain: 0.7 }], [1.25, 'reel-stop', { gain: 0.6 }]],
+    at(i, t) {
+      t -= i * STAGGER;
+      if (t < 0.95) return { off: lead(t, [[0, 0], [T_WIND, -0.1 * PITCH], [0.42, 0.62 * PITCH], [0.95, 0.62 * PITCH]]) };
+      return { off: fall(t - 0.95, 0.62 * PITCH, 0.3) };
+    },
+  },
+  // A wave runs along the three reels, and the light with it.
+  wave: {
+    span: 3.4,
+    words: ['Wave back!', 'Press the button and spin the reels'],
+    at(i, t) {
+      const on = smooth(t / 0.5) * smooth((3.2 - t) / 0.7);
+      const turn = t / 0.85 - i / 3;
+      return { off: 0.2 * PITCH * on * Math.sin(2 * Math.PI * turn), glow: 0.7 * on * Math.sin(Math.PI * turn) ** 2 };
+    },
+  },
+  // Newton's cradle: the left reel is drawn back and let go. It stops dead on the knock and the right
+  // one swings out; back it comes, and the left one swings out, a little less every time.
+  cradle: {
+    span: 3.7,
+    words: ['Tick, tock', 'Players are waiting for your spin'],
+    sounds: Array.from({ length: CRADLE.swings + 1 }, (_, k) => [CRADLE.hit + k * CRADLE.swing, 'reel-stop', { gain: 0.8 * CRADLE.keep ** k, rate: 1.3 }]),
+    at(i, t) {
+      const { hit, swing, draw, keep, swings } = CRADLE;
+      const k = Math.floor((t - hit) / swing); // which swing is on
+      const since = t - hit - k * swing;
+      if (i === 1) {
+        // The middle reel takes every knock and hardly moves.
+        if (t < hit) return REST;
+        const last = Math.min(k, swings);
+        const after = t - hit - last * swing;
+        return { off: (last % 2 ? -8 : 8) * keep ** last * Math.exp(-12 * after) * Math.sin(2 * Math.PI * 7 * after) };
+      }
+      if (t < hit) {
+        if (i === 2) return REST;
+        return { off: t < 0.8 ? lead(t, [[0.15, 0], [0.65, -draw]]) : -draw * Math.cos((Math.PI / 2) * ((t - 0.8) / (hit - 0.8))) };
+      }
+      if (k >= swings || (k % 2 ? 0 : 2) !== i) return REST;
+      return { off: (i ? 1 : -1) * draw * keep ** (k + 1) * Math.sin((Math.PI * since) / swing), glow: 0.6 * Math.exp(-5 * since) };
+    },
+  },
+  // Glints run over the covers one after another while the frames breathe; then all three flash together, twice, like a heartbeat.
+  shimmer: {
+    span: 3.7,
+    words: ['Shiny, huh?', 'Three in a row: +100 players for a game'],
+    at(i, t) {
+      const run = t - 0.2 - i * 0.2;
+      const glint = run % 0.95;
+      const on = smooth(t / 0.4) * smooth((2.95 - t) / 0.4);
+      const thump = beat(t - 3, 0.32, 2);
+      return {
+        shine: run >= 0 && run < 2.85 && glint < 0.5 ? -1.3 + (glint / 0.5) * 2.6 : 9,
+        glow: Math.max(0.55 * on * Math.sin(Math.PI * (t / 0.95 - i / 3)) ** 2, 0.9 * thump),
+        zoom: 1 + 0.035 * thump,
+      };
+    },
+  },
+  // The shell game: the reels change places, one passing in front of the other, and stay where they end up.
+  // While they do, their drums are gone: only the covers fly, over the shaft.
+  shuffle: {
+    span: 2.5,
+    words: ['Shuffled!', 'Press and see where the luck lands'],
+    sounds: SWAPS.map(([, to]) => [to - 0.04, 'reel-stop', { gain: 0.6, rate: 1.5 }]),
+    at(i, t) {
+      const bare = smooth(t / 0.2) * smooth((2.5 - t) / 0.14);
+      let place = i;
+      for (const [from, to, a, b] of SWAPS) {
+        if (place !== a && place !== b) continue;
+        const other = place === a ? b : a;
+        if (t >= to) {
+          place = other;
+          continue;
+        }
+        if (t <= from) break;
+        const u = smooth((t - from) / (to - from));
+        const arc = Math.sin(Math.PI * u) * (place === a ? 1 : -1); // one comes forward, the other steps back
+        return { dx: REEL_X[place] + (REEL_X[other] - REEL_X[place]) * u - REEL_X[i], zoom: 1 + 0.13 * arc, dim: 1 + Math.min(0, 0.3 * arc), bare };
+      }
+      return { dx: REEL_X[place] - REEL_X[i], bare };
+    },
+    // The reels take their new places for good, each with its stop of the coming spin.
+    end() {
+      const place = (i) => SWAPS.reduce((at, [, , a, b]) => (at === a ? b : at === b ? a : at), i);
+      const was = [...reels];
+      const aim = [...next.targets];
+      was.forEach((reel, i) => {
+        reels[place(i)] = reel;
+        next.targets[place(i)] = aim[i];
+      });
+    },
+  },
+  // Knock, knock: the middle drum leans out at the viewer twice, then all three lean in to look.
+  knock: {
+    span: 3.2,
+    words: ['Knock, knock', 'Anybody here to spin?'],
+    sounds: [[0.36, 'reel-stop', { gain: 1, rate: 0.6 }], [0.7, 'reel-stop', { gain: 1, rate: 0.6 }]],
+    at(i, t) {
+      const rap = (at) => {
+        const u = (t - at) / 0.3;
+        return u <= 0 || u >= 1 ? 0 : u < 0.25 ? smooth(u / 0.25) : 1 - smooth((u - 0.25) / 0.75);
+      };
+      const raps = i === 1 ? rap(0.3) + rap(0.64) : 0;
+      const look = smooth((t - 1.35 - i * 0.1) / 0.35) * smooth((2.75 - t) / 0.35);
+      return { zoom: 1 + 0.15 * raps + 0.07 * look, glow: Math.max(0.7 * raps, 0.4 * look) };
+    },
+  },
+};
+
+// Put a scene on stage, if the reels are at rest and hold the coming spin.
+function act(name) {
+  if (phase !== 'idle' || !ready) return;
+  clearTimeout(lureTimer);
+  settle();
+  const scene = SCENES[name];
+  result = null; // the attract spin before it is over: the scene's sounds set their own volume
+  luring = true;
+  antic = {
+    scene,
+    start: performance.now(),
+    sounds: (scene.sounds || []).map(([delay, sound, options]) => play(sound, { ...options, gain: options.gain * LURE_VOLUME, delay })),
+  };
+  say(scene.words[0], show === null ? scene.words[1] : `Scene ${Object.keys(SCENES).indexOf(name) + 1}: ${name}`);
+  lureTimer = setTimeout(lure, (show === null ? LURE_EVERY : scene.span + 1.5) * 1000);
+  kick();
+}
+
+// A scene has run its time: the reels are at rest again (after a shuffle, in their new places).
+function settle() {
+  antic?.scene.end?.();
+  antic = null;
+}
+
 // ---------- Spin ----------
 
 // `lured`: the three games an attract spin stops on.
@@ -1007,6 +1208,13 @@ function spin(lured) {
       queued = true;
       return;
     }
+  }
+  if (antic) {
+    // The pose the viewer saw last; from here it melts away.
+    const t = (lastFrame - antic.start) / 1000;
+    carry = { at: performance.now(), pose: reels.map((_, i) => ({ ...REST, ...antic.scene.at(i, t) })) };
+    for (const sound of antic.sounds) sound?.source.stop();
+    antic = null;
   }
   audio.resume();
   ready = false;
@@ -1149,10 +1357,29 @@ function render(now) {
   gl.enable(gl.SCISSOR_TEST);
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, reels[0].texture);
   gl.uniform1f(U.shaftPass, 1);
+  gl.uniform1f(U.zoom, 1);
   box(-SHAFT_HALF, SHAFT_HALF);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   gl.uniform1f(U.shaftPass, 0);
-  reels.forEach((reel, i) => {
+  // Attract mode's scene, or what a press left of it.
+  let poses = null;
+  if (antic) {
+    const at = (now - antic.start) / 1000;
+    poses = reels.map((_, i) => {
+      const pose = { ...REST, ...antic.scene.at(i, at) };
+      pose.speed = (pose.off - (antic.scene.at(i, at - 1 / 120).off || 0)) * 120;
+      return pose;
+    });
+  } else if (carry) {
+    const left = 1 - smooth((now - carry.at) / 300);
+    if (left <= 0) carry = null;
+    else poses = carry.pose.map((pose) => ({ off: pose.off * left, dx: pose.dx * left, zoom: 1 + (pose.zoom - 1) * left, dim: 1 + (pose.dim - 1) * left, glow: pose.glow * left, shine: 9, bare: pose.bare * left }));
+  }
+  // The drum that leans out furthest is drawn last, over the others.
+  const order = poses ? [0, 1, 2].sort((a, b) => poses[a].zoom - poses[b].zoom) : [0, 1, 2];
+  order.forEach((i) => {
+    const reel = reels[i];
+    const pose = poses ? poses[i] : REST;
     const [off, speed] = phase === 'spinning' ? motion(i, t - i * STAGGER, tease && i === 2, skip[i]) : [0, 0];
     let [dim, glow, shine, nudge] = celebrate(i, party);
     // Anticipation: the two reels that match light up, and the frame of the third one pulses while it slows.
@@ -1162,16 +1389,21 @@ function render(now) {
     }
     // Attract mode: a light runs across the reels, left to right.
     if (lureLight > 0.01 && !result?.prize) glow = Math.max(glow, 0.6 * lureLight * Math.sin(Math.PI * (now / 900 - i / 3)) ** 2);
-    const pos = (((reel.center * PITCH + off + nudge) % BELT) + BELT) % BELT;
+    glow = Math.max(glow, pose.glow);
+    if (pose.shine !== 9) shine = pose.shine;
+    const pos = (((reel.center * PITCH + off + nudge + pose.off) % BELT) + BELT) % BELT;
     // The drum's far edges sit closer to the stage centre than its front ones.
     const left = REEL_X[i] - STAGE_W / 2 - DRUM_HALF;
     const right = left + 2 * DRUM_HALF;
-    box(Math.min(left, left * EDGE_SCALE), Math.max(right, right * EDGE_SCALE));
+    if (pose.dx || pose.zoom !== 1) gl.scissor(0, 0, canvas.width, canvas.height); // a drum out of its place: the whole canvas
+    else box(Math.min(left, left * EDGE_SCALE), Math.max(right, right * EDGE_SCALE));
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, reel.texture);
-    gl.uniform1f(U.cx, REEL_X[i] - STAGE_W / 2);
+    gl.uniform1f(U.cx, REEL_X[i] + pose.dx - STAGE_W / 2);
+    gl.uniform1f(U.zoom, pose.zoom);
     gl.uniform1f(U.pos, pos);
-    gl.uniform1f(U.blur, Math.min(Math.abs(speed) * SHUTTER, 0.55 * PITCH));
-    gl.uniform1f(U.dim, dim);
+    gl.uniform1f(U.blur, Math.min(Math.abs(speed + (pose.speed || 0)) * SHUTTER, 0.55 * PITCH));
+    gl.uniform1f(U.dim, dim * pose.dim);
+    gl.uniform1f(U.body, 1 - pose.bare);
     gl.uniform1f(U.glow, glow);
     gl.uniform1f(U.shine, shine);
     gl.uniform1f(U.seed, (now % 1000) * 0.618);
@@ -1210,6 +1442,7 @@ function tick(now) {
   if (jackpot && result.landed) {
     for (const waves = Math.min(3, Math.floor((party - COUNT[100]) / 1.1)); result.rain < waves; result.rain++) rainConfetti();
   }
+  if (antic && (now - antic.start) / 1000 >= antic.scene.span) settle();
   const dt = Math.min((now - lastFrame) / 1000, 1 / 30);
   lureLight += ((luring ? 1 : 0) - lureLight) * Math.min(1, dt * 1.5);
   render(now);
@@ -1217,7 +1450,7 @@ function tick(now) {
   drawFx(dt, party);
   lastFrame = now;
   const partying = result && party < PARTY[result.prize];
-  if (phase === 'spinning' || phase === 'result' || confetti.length || sparks.length || partying || luring || lureLight > 0.002) kick();
+  if (phase === 'spinning' || phase === 'result' || confetti.length || sparks.length || partying || luring || lureLight > 0.002 || carry) kick();
 }
 
 function kick() {
@@ -1262,6 +1495,8 @@ addEventListener('pointerdown', (event) => {
   if (event.button === 0) press();
 });
 addEventListener('keydown', (event) => {
+  const scene = show !== null && Object.keys(SCENES)[Number(event.key) - 1];
+  if (scene) return antic || calm ? undefined : act(scene); // one scene at a time
   if ((event.code !== 'Space' && event.code !== 'Enter') || event.repeat) return;
   event.preventDefault();
   press();
@@ -1310,6 +1545,8 @@ window.__slot = {
       sounds: Object.keys(sounds).length,
       luring,
       lureLight,
+      antic: antic ? Object.keys(SCENES).find((name) => SCENES[name] === antic.scene) : '',
+      carry: Boolean(carry),
     };
   },
   get timing() {
@@ -1320,6 +1557,11 @@ window.__slot = {
   spin,
   slam, // at a given second of the spin
   lure, // an attract spin now
+  scenes: SCENES,
+  act(name) {
+    act(name); // step() then drives the scene: its clock starts where a spin's would
+    if (antic) spinStart = antic.start;
+  },
   press,
   step(seconds) {
     stepping = true;
