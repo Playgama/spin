@@ -218,7 +218,7 @@ uniform float u_zoom;     // the drum's size: above 1 it leans out at the viewer
 uniform float u_pos;      // belt position under the reel axis, px
 uniform float u_blur;     // motion smear along the belt, px
 uniform float u_dim;      // brightness: below 1 for a reel that did not match
-uniform float u_body;     // 1: the drum under the covers is there; 0: only the covers are
+uniform float u_body;     // 1: the drum under the covers (or the shaft) is there; 0: only the covers are
 uniform float u_glow;     // 0..1: win light of this reel
 uniform float u_shine;    // where the light sweep is on the cover, in cover widths from its centre
 uniform float u_seed;
@@ -281,7 +281,7 @@ void main() {
 
   if (u_shaftPass > 0.5) {
     float body = clamp(0.5 - (abs(p.x * R) - SHAFT_HALF) / ax, 0.0, 1.0);
-    o_color = vec4(mix(u_shaft * gloss.x, vec3(1.0), gloss.y), 1.0) * fade * body;
+    o_color = vec4(mix(u_shaft * gloss.x, vec3(1.0), gloss.y), 1.0) * fade * body * u_body;
     return;
   }
 
@@ -1015,7 +1015,7 @@ function drawRays(t, lure = 0, clock = 0) {
 
 // An attract cycle can be a scene instead of a spin: the reels move a little by themselves and come back
 // to where they were. A scene says what it does to reel `i`, `t` seconds in: `off` (belt travel, px),
-// `dx` (shift along the shaft, px), `zoom`, `dim`, `glow`, `shine` and `bare` (1: the drum under the covers is gone). No scene turns a belt by more than
+// `dx` (shift along the shaft, px), `zoom`, `dim`, `glow`, `shine` and `bare` (1: the drum under the covers is gone, and the shaft with it). No scene turns a belt by more than
 // two thirds of a cover, so the coming spin stays hidden and no new cover comes to rest on the reel
 // axis. A press cuts a scene at once: the spin starts, and the scene's pose melts away under it.
 // To look at them alone, open the page with ?scenes (one after another, with each one's number under
@@ -1128,7 +1128,7 @@ const SCENES = {
     },
   },
   // The shell game: the reels change places, one passing in front of the other, and stay where they end up.
-  // While they do, their drums are gone: only the covers fly, over the shaft.
+  // While they do, their drums and the shaft are gone: only the covers fly.
   shuffle: {
     span: 2.5,
     words: ['Shuffled!', 'Press and see where the luck lands'],
@@ -1360,12 +1360,6 @@ function render(now) {
   gl.disable(gl.SCISSOR_TEST);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.enable(gl.SCISSOR_TEST);
-  gl.bindTexture(gl.TEXTURE_2D_ARRAY, reels[0].texture);
-  gl.uniform1f(U.shaftPass, 1);
-  gl.uniform1f(U.zoom, 1);
-  box(-SHAFT_HALF, SHAFT_HALF);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  gl.uniform1f(U.shaftPass, 0);
   // Attract mode's scene, or what a press left of it.
   let poses = null;
   if (antic) {
@@ -1380,6 +1374,14 @@ function render(now) {
     if (left <= 0) carry = null;
     else poses = carry.pose.map((pose) => ({ off: pose.off * left, dx: pose.dx * left, zoom: 1 + (pose.zoom - 1) * left, dim: 1 + (pose.dim - 1) * left, glow: pose.glow * left, shine: 9, bare: pose.bare * left }));
   }
+  // The shaft goes with the drums: while the reels change places, only their covers are left.
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, reels[0].texture);
+  gl.uniform1f(U.shaftPass, 1);
+  gl.uniform1f(U.zoom, 1);
+  gl.uniform1f(U.body, poses ? 1 - Math.max(...poses.map((pose) => pose.bare)) : 1);
+  box(-SHAFT_HALF, SHAFT_HALF);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.uniform1f(U.shaftPass, 0);
   // The drum that leans out furthest is drawn last, over the others.
   const order = poses ? [0, 1, 2].sort((a, b) => poses[a].zoom - poses[b].zoom) : [0, 1, 2];
   order.forEach((i) => {
