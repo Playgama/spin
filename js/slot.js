@@ -77,12 +77,12 @@ const SAY_NONE = 4; // seconds "No match" stays before the invitation returns
 const SAY_WIN = 60; // seconds a win and its QR code stay if nobody spins
 
 // Attract mode. Once the invitation is back and nobody spins for LURE_EVERY seconds, the reels spin by
-// themselves, again every LURE_EVERY seconds: quieter, never to a match, and without touching the prize
+// themselves, an attract spin starting every LURE_EVERY seconds: quieter, never to a match, and without touching the prize
 // count or the outcome waiting for the next real spin. Soft beams turn behind the drums, a light runs
 // across the reels, and each attract spin brings a new line of invitation.
-const LURE_EVERY = 10;
+const LURE_EVERY = 7;
 const LURE_VOLUME = 0.35; // of an attract spin's sounds
-const LURE_RAYS = 1.3; // the beams' strength, of a jackpot's
+const LURE_RAYS = 2.6; // the beams' strength, of a jackpot's: above 1 the light itself gets brighter
 const LURES = [
   ['Feeling lucky?', 'Press the button and spin the reels'],
   ['Spin me!', 'Match two and a game gets +50 players'],
@@ -708,6 +708,7 @@ function invite() {
 // An attract spin. The slot each reel will stop on gets a new cover, three different games; after the spin
 // the waiting outcome is laid on the belts again (land → lay).
 async function lure() {
+  clearTimeout(lureTimer); // one chain of attract spins, however lure() was called
   if (phase !== 'idle' || !ready) {
     lureTimer = setTimeout(lure, 1000);
     return;
@@ -957,6 +958,7 @@ function drawRays(t, lure = 0, clock = 0) {
   const landed = t - COUNT[100];
   const lit = landed < 0 ? 0.55 : 1 + 0.5 * Math.exp(-landed / 0.5);
   const strength = Math.max(clamp01(t / 0.3) * clamp01((PARTY[100] - t) / 0.8) * lit, lure);
+  const bright = Math.max(1, lure); // a beam's opacity stops at 1: stronger attract beams carry brighter light instead
   const turned = Number.isFinite(t) ? t : clock;
   if (strength <= 0 && !raysOn) return;
   raysOn = strength > 0;
@@ -973,8 +975,8 @@ function drawRays(t, lure = 0, clock = 0) {
   const y = height / 2 + (REEL_Y - STAGE_H / 2) * stageScale * RAYS_RES; // the reels' axis, in the canvas's pixels
   const reach = 1.2 * Math.hypot(x, Math.max(y, height - y)); // past the farthest corner of the window
   const light = rays.createRadialGradient(x, y, 0, x, y, reach);
-  light.addColorStop(0, `rgb(${warm} / 0.05)`); // warm at the drums, white and gone far away
-  light.addColorStop(0.4, 'rgb(255 255 255 / 0.025)');
+  light.addColorStop(0, `rgb(${warm} / ${0.05 * bright})`); // warm at the drums, white and gone far away
+  light.addColorStop(0.4, `rgb(255 255 255 / ${0.025 * bright})`);
   light.addColorStop(1, 'rgb(255 255 255 / 0)');
   rays.fillStyle = light;
   for (const beams of BEAMS) {
@@ -1015,7 +1017,10 @@ function spin(lured) {
   plan = { stop: [STOP[0], STOP[1], last], reveal: last + 0.18, settle: last + T_SETTLE };
   skip = [0, 0, 0];
   for (const reel of reels) reel.hit = false;
-  if (lured) say(...LURES[lureCount++ % LURES.length]);
+  if (lured) {
+    say(...LURES[lureCount++ % LURES.length]);
+    lureTimer = setTimeout(lure, LURE_EVERY * 1000); // the next attract spin
+  }
   else say('', quip(QUIPS), 'is-quip'); // the quip under the turning reels
   teased = false;
   if (boosted) marqueeRate(1);
@@ -1088,10 +1093,7 @@ function onStop(i, late) {
 function reveal(now, late) {
   result.shown = true;
   revealAt = now - late * 1000;
-  if (result.lure) {
-    if (luring) lureTimer = setTimeout(lure, LURE_EVERY * 1000);
-    return;
-  }
+  if (result.lure) return;
   if (!result.prize) {
     say(...WORDS.none);
     sayTimer = setTimeout(invite, SAY_NONE * 1000);
