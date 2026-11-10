@@ -76,9 +76,10 @@ const WORDS = {
 const SAY_NONE = 4; // seconds "No match" stays before the invitation returns
 const SAY_WIN = 60; // seconds a win and its QR code stay if nobody spins
 
-// Attract mode. Once the invitation is back and nobody spins for LURE_EVERY seconds, the reels spin by
-// themselves, an attract spin starting every LURE_EVERY seconds: quieter, never to a match, and without touching the prize
-// count or the outcome waiting for the next real spin. Soft beams turn behind the drums, a light runs
+// Attract mode. Once the invitation is back and nobody spins for LURE_EVERY seconds, the reels move by
+// themselves, a cycle starting every LURE_EVERY seconds: a spin, then a scene (see SCENES), then a spin again.
+// An attract spin is quieter, never to a match, and touches neither the prize count nor the outcome
+// waiting for the next real spin. Soft beams turn behind the drums, a light runs
 // across the reels, and each attract spin brings a new line of invitation.
 const LURE_EVERY = 7;
 const LURE_VOLUME = 0.35; // of an attract spin's sounds
@@ -409,7 +410,8 @@ let skip = [0, 0, 0]; // seconds of full speed each reel leaves out this spin (s
 let pending = null; // { outcome, game, force } of the coming spin: drawn once, laid on the belts again after an attract spin
 let luring = false; // attract mode is on
 let lureTimer = 0;
-let lureCount = 0;
+let lureCount = 0; // attract cycles so far: spin, scene, spin, scene…
+let sceneBag = []; // the scenes still to come
 let lureLight = 0; // attract mode's light, fading in and out: 0…1
 let antic = null; // the attract scene on stage: { scene, start, sounds }
 let carry = null; // { at, pose }: the pose a press cut a scene at; it melts away under the spin
@@ -719,9 +721,11 @@ async function lure() {
     lureTimer = setTimeout(lure, 1000);
     return;
   }
-  if (show !== null && !calm) {
-    const names = Object.keys(SCENES);
-    act(SCENES[show] ? show : names[lureCount++ % names.length]);
+  // Every other attract cycle is a scene; every scene plays before any comes again.
+  if (!calm && (show !== null || lureCount % 2)) {
+    if (!sceneBag.length) sceneBag = show === null ? shuffle(Object.keys(SCENES)) : Object.keys(SCENES).reverse();
+    lureCount++;
+    act(SCENES[show] ? show : sceneBag.pop());
     return;
   }
   luring = true;
@@ -1014,7 +1018,8 @@ function drawRays(t, lure = 0, clock = 0) {
 // `dx` (shift along the shaft, px), `zoom`, `dim`, `glow`, `shine` and `bare` (1: the drum under the covers is gone). No scene turns a belt by more than
 // two thirds of a cover, so the coming spin stays hidden and no new cover comes to rest on the reel
 // axis. A press cuts a scene at once: the spin starts, and the scene's pose melts away under it.
-// Try them with ?scenes (one after another; keys 1 to 7 start one) or ?scenes=wave (that one only).
+// To look at them alone, open the page with ?scenes (one after another, with each one's number under
+// the headline; keys 1 to 7 start one) or ?scenes=wave (that one only).
 const REST = { off: 0, dx: 0, zoom: 1, dim: 1, glow: 0, shine: 9, bare: 0 };
 const show = new URLSearchParams(location.search).get('scenes'); // null: no scenes, the attract spin only
 
@@ -1226,7 +1231,7 @@ function spin(lured) {
   skip = [0, 0, 0];
   for (const reel of reels) reel.hit = false;
   if (lured) {
-    say(...LURES[lureCount++ % LURES.length]);
+    say(...LURES[(lureCount++ >> 1) % LURES.length]); // a spin is every other cycle
     lureTimer = setTimeout(lure, LURE_EVERY * 1000); // the next attract spin
   }
   else say('', quip(QUIPS), 'is-quip'); // the quip under the turning reels
