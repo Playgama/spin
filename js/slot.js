@@ -76,6 +76,20 @@ const WORDS = {
 const SAY_NONE = 4; // seconds "No match" stays before the invitation returns
 const SAY_WIN = 60; // seconds a win and its QR code stay if nobody spins
 
+// Attract mode. Once the invitation is back and nobody spins for LURE_EVERY seconds, the reels spin by
+// themselves, again every LURE_EVERY seconds: quieter, never to a match, and without touching the prize
+// count or the outcome waiting for the next real spin. Soft beams turn behind the drums, a light runs
+// across the reels, and each attract spin brings a new line of invitation.
+const LURE_EVERY = 10;
+const LURE_VOLUME = 0.35; // of an attract spin's sounds
+const LURE_RAYS = 1.3; // the beams' strength, of a jackpot's
+const LURES = [
+  ['Feeling lucky?', 'Press the button and spin the reels'],
+  ['Spin me!', 'Match two and a game gets +50 players'],
+  ['Hit the jackpot', 'Three in a row: +100 players for a game'],
+  ['Your turn', 'One press sends real players to a game'],
+];
+
 // While the reels turn, the line under them says something a web gamer would: one quip a spin, in
 // the size of the game's name under a win. A second set is for the moment two reels have matched.
 const QUIPS = [
@@ -389,6 +403,11 @@ let tease = false; // this spin has anticipation: the first two reels match
 let teased = false; // the anticipation's quip is up
 let plan = { stop: STOP, reveal: REVEAL, settle: SETTLE }; // when this spin's reels stop, in seconds
 let skip = [0, 0, 0]; // seconds of full speed each reel leaves out this spin (see slam)
+let pending = null; // { outcome, game, force } of the coming spin: drawn once, laid on the belts again after an attract spin
+let luring = false; // attract mode is on
+let lureTimer = 0;
+let lureCount = 0;
+let lureLight = 0; // attract mode's light, fading in and out: 0…1
 let spinStart = 0;
 let revealAt = 0;
 let idleAt = 0;
@@ -523,12 +542,19 @@ function credit(game, prize) {
   keep();
 }
 
-// Pick the six games of the coming spin and where each reel will stop, then put them on the belts.
-// The outcome comes from the bag (or the test hook); which of the six games it falls on is random.
-// The three covers on show stay; the six slots behind the drum get the new games.
+// Draw the outcome of the coming spin from the bag (or the test hook), then lay it on the belts.
 async function prepare(force) {
   ready = false;
-  const { outcome, game } = award(force || draw());
+  pending = { ...award(force || draw()), force };
+  return lay();
+}
+
+// Pick the six games of the coming spin and where each reel will stop, then put them on the belts.
+// Which of the six games the outcome falls on is random. The three covers on show stay; the six slots
+// behind the drum get the new games.
+async function lay() {
+  ready = false;
+  const { outcome, game, force } = pending;
   // The winner comes first among the six: every pattern stops its matching reels on six[0].
   const six = game < 0 ? deal(GAMES_PER_SPIN) : [game, ...deal(GAMES_PER_SPIN - 1, game)];
   const pattern = outcome === 'pair' && !force ? PAIRS[Math.floor(Math.random() * PAIRS.length)] : FORCE[outcome];
@@ -579,7 +605,7 @@ function play(name, { gain = 1, rate = 1, loop = false, delay = 0 } = {}) {
   source.buffer = sounds[name];
   source.loop = loop;
   source.playbackRate.value = rate;
-  volume.gain.value = gain;
+  volume.gain.value = gain * (result?.lure ? LURE_VOLUME : 1);
   source.connect(volume).connect(audio.destination);
   source.start(audio.currentTime + delay);
   return { source, volume };
@@ -668,13 +694,46 @@ function say(headline = '', note = '', mood = '') {
   qrEl.classList.toggle('is-on', mood.includes('is-win'));
 }
 
-// Back to the invitation. The light of the last win goes out with its words.
+// Back to the invitation. The light of the last win goes out with its words. Attract mode follows if nobody spins.
 function invite() {
   if (phase === 'idle' && result) {
     result = null;
     kick();
   }
   say(...WORDS.idle);
+  clearTimeout(lureTimer);
+  lureTimer = setTimeout(lure, LURE_EVERY * 1000);
+}
+
+// An attract spin. The slot each reel will stop on gets a new cover, three different games; after the spin
+// the waiting outcome is laid on the belts again (land → lay).
+async function lure() {
+  if (phase !== 'idle' || !ready) {
+    lureTimer = setTimeout(lure, 1000);
+    return;
+  }
+  luring = true;
+  ready = false;
+  kick();
+  const shown = deal(3);
+  const places = new Map();
+  reels.forEach((reel, r) => {
+    const slot = (reel.center + LAND) % SLOTS;
+    reel.games[slot] = shown[r];
+    places.set(shown[r], [[r, slot]]);
+  });
+  try {
+    await paint(places);
+  } catch {
+    return lay();
+  }
+  if (!luring || queued || phase !== 'idle') return lay(); // somebody pressed meanwhile
+  spin(shown);
+}
+
+function endLure() {
+  luring = false;
+  clearTimeout(lureTimer);
 }
 
 // Draw the QR code of the page where the winner shares a ready post: which game got players, and how many.
@@ -890,13 +949,15 @@ function drawFx(dt, party) {
   }
 }
 
-// Jackpot only: soft beams of light turn slowly behind the drums and run off past the edges of the window.
+// Jackpot: soft beams of light turn slowly behind the drums and run off past the edges of the window.
 // They are half lit while the prize counts and bloom when it lands; the page behind the drums flashes
-// once at each of the two moments.
-function drawRays(t) {
+// once at each of the two moments. `t` is the time since the jackpot was shown, Infinity outside one.
+// Attract mode lights the same beams at `lure` strength, turning by the clock (`clock`, seconds).
+function drawRays(t, lure = 0, clock = 0) {
   const landed = t - COUNT[100];
   const lit = landed < 0 ? 0.55 : 1 + 0.5 * Math.exp(-landed / 0.5);
-  const strength = clamp01(t / 0.3) * clamp01((PARTY[100] - t) / 0.8) * lit;
+  const strength = Math.max(clamp01(t / 0.3) * clamp01((PARTY[100] - t) / 0.8) * lit, lure);
+  const turned = Number.isFinite(t) ? t : clock;
   if (strength <= 0 && !raysOn) return;
   raysOn = strength > 0;
   const { width, height } = rays.canvas;
@@ -919,7 +980,7 @@ function drawRays(t) {
   for (const beams of BEAMS) {
     const between = (2 * Math.PI) / beams.count;
     for (let n = 0; n < beams.count; n++) {
-      const middle = t * beams.turn + n * between;
+      const middle = turned * beams.turn + n * between;
       rays.globalAlpha = strength * beams.lights[n % beams.lights.length];
       // Five wedges, one inside another: bright along the middle of the beam, fading to its sides.
       for (let layer = 1; layer <= 5; layer++) {
@@ -935,21 +996,27 @@ function drawRays(t) {
 
 // ---------- Spin ----------
 
-function spin() {
+// `lured`: the three games an attract spin stops on.
+function spin(lured) {
   if (phase !== 'idle') return;
-  if (!ready) {
-    queued = true;
-    return;
+  if (!lured) {
+    endLure();
+    if (!ready) {
+      queued = true;
+      return;
+    }
   }
   audio.resume();
   ready = false;
-  result = judge(next.targets);
-  tease = !calm && next.targets[0] === next.targets[1];
+  const targets = lured || next.targets;
+  result = { ...judge(targets), lure: Boolean(lured) };
+  tease = !calm && targets[0] === targets[1];
   const last = tease ? 2 * STAGGER + TEASE_AT + TEASE_TIME : STOP[2];
   plan = { stop: [STOP[0], STOP[1], last], reveal: last + 0.18, settle: last + T_SETTLE };
   skip = [0, 0, 0];
   for (const reel of reels) reel.hit = false;
-  say('', quip(QUIPS), 'is-quip'); // the quip under the turning reels
+  if (lured) say(...LURES[lureCount++ % LURES.length]);
+  else say('', quip(QUIPS), 'is-quip'); // the quip under the turning reels
   teased = false;
   if (boosted) marqueeRate(1);
   phase = 'spinning';
@@ -1021,6 +1088,10 @@ function onStop(i, late) {
 function reveal(now, late) {
   result.shown = true;
   revealAt = now - late * 1000;
+  if (result.lure) {
+    if (luring) lureTimer = setTimeout(lure, LURE_EVERY * 1000);
+    return;
+  }
   if (!result.prize) {
     say(...WORDS.none);
     sayTimer = setTimeout(invite, SAY_NONE * 1000);
@@ -1051,6 +1122,11 @@ function reveal(now, late) {
 
 function land() {
   reels.forEach((reel, i) => { reel.center = (reel.center + TRAVEL[i]) % SLOTS; });
+  if (result.lure) {
+    phase = 'idle';
+    lay(); // the waiting outcome, on the slots behind the drum again
+    return;
+  }
   phase = 'result';
   idleAt = revealAt + HOLD[result.prize] * 1000;
   prepare();
@@ -1082,6 +1158,8 @@ function render(now) {
       const on = clamp01((t - STOP[1] - 0.1) / 0.25);
       glow = on * (i === 2 ? 0.3 + 0.3 * Math.sin(Math.PI * 2.5 * (t - STOP[1])) ** 2 : 0.5);
     }
+    // Attract mode: a light runs across the reels, left to right.
+    if (lureLight > 0.01 && !result?.prize) glow = Math.max(glow, 0.6 * lureLight * Math.sin(Math.PI * (now / 900 - i / 3)) ** 2);
     const pos = (((reel.center * PITCH + off + nudge) % BELT) + BELT) % BELT;
     // The drum's far edges sit closer to the stage centre than its front ones.
     const left = REEL_X[i] - STAGE_W / 2 - DRUM_HALF;
@@ -1130,12 +1208,14 @@ function tick(now) {
   if (jackpot && result.landed) {
     for (const waves = Math.min(3, Math.floor((party - COUNT[100]) / 1.1)); result.rain < waves; result.rain++) rainConfetti();
   }
+  const dt = Math.min((now - lastFrame) / 1000, 1 / 30);
+  lureLight += ((luring ? 1 : 0) - lureLight) * Math.min(1, dt * 1.5);
   render(now);
-  drawRays(jackpot ? party : Infinity);
-  drawFx(Math.min((now - lastFrame) / 1000, 1 / 30), party);
+  drawRays(jackpot ? party : Infinity, LURE_RAYS * lureLight * (0.7 + 0.3 * Math.sin(now / 700)), now / 1000);
+  drawFx(dt, party);
   lastFrame = now;
   const partying = result && party < PARTY[result.prize];
-  if (phase === 'spinning' || phase === 'result' || confetti.length || sparks.length || partying) kick();
+  if (phase === 'spinning' || phase === 'result' || confetti.length || sparks.length || partying || luring || lureLight > 0.002) kick();
 }
 
 function kick() {
@@ -1166,8 +1246,16 @@ function fit() {
 }
 
 addEventListener('resize', fit);
-// A press spins the reels; pressed again while they turn, it stops them early.
-const press = () => (phase === 'spinning' ? slam() : spin());
+// A press spins the reels; pressed again while they turn, it stops them early. During an attract spin
+// it stops that one early and spins for real right after.
+function press() {
+  if (phase !== 'spinning') return spin();
+  if (result.lure) {
+    endLure();
+    queued = true;
+  }
+  slam();
+}
 addEventListener('pointerdown', (event) => {
   if (event.button === 0) press();
 });
@@ -1218,6 +1306,8 @@ window.__slot = {
       audio: audio.state,
       muted,
       sounds: Object.keys(sounds).length,
+      luring,
+      lureLight,
     };
   },
   get timing() {
@@ -1227,6 +1317,8 @@ window.__slot = {
   prepare,
   spin,
   slam, // at a given second of the spin
+  lure, // an attract spin now
+  press,
   step(seconds) {
     stepping = true;
     cancelAnimationFrame(frame);

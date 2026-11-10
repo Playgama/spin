@@ -27,6 +27,7 @@ async function start() {
   $('gain').textContent = `+${players} players`;
   $('whom').textContent = game.title;
   $('post').textContent = post;
+  $('play').href = link;
   $('ready').hidden = false;
 
   // LinkedIn fills in nothing but the link, so the text goes to the clipboard on the way there.

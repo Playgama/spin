@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="shared/css/typography.css">
   <link rel="stylesheet" href="shared/css/components.css">
   <!-- ?v=…: raise the number with every change of these files. A browser may keep the old ones for ten minutes after the site is updated, and an old script with a new page is a broken machine. -->
-  <link rel="stylesheet" href="css/share.css?v=7">
+  <link rel="stylesheet" href="css/share.css?v=8">
 </head>
 <body>
   <!-- Opened on a phone from the QR code of a win on the slot: share.html?g=<game id>&p=<players>. -->
@@ -20,6 +20,11 @@
     <h1 class="gain heading-promo-xxxl" id="gain"></h1>
     <p class="whom heading-promo-m" id="whom"></p>
     <div class="ready" id="ready" hidden>
+      <!-- The game's page on playgama.ai, in a new tab of the phone's browser. Icon: the library's assets/icons/system/play-24. -->
+      <a class="btn btn-l btn-lime play" id="play" target="_blank" rel="noopener">
+        <svg class="btn-icon-slot" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.0163 4.73626C9.52083 4.43163 8.89817 4.42159 8.39268 4.70614C7.88719 4.99068 7.57251 5.5263 7.57251 6.10879V17.8924C7.57251 18.4749 7.88719 19.0105 8.39268 19.2951C8.89817 19.5796 9.52083 19.5662 10.0163 19.2649L19.6574 13.3731C20.1361 13.0819 20.4274 12.563 20.4274 12.0006C20.4274 11.4382 20.1361 10.9227 19.6574 10.6281L10.0163 4.73626Z"/></svg>
+        Play Game
+      </a>
       <section class="post">
         <h2 class="post__label caption-m">Your post is ready</h2>
         <p class="post__text body-l" id="post"></p>
@@ -40,6 +45,6 @@
       <p class="hint body-s">On LinkedIn, paste the text: it's already copied.</p>
     </div>
   </main>
-  <script type="module" src="js/share.js?v=8"></script>
+  <script type="module" src="js/share.js?v=9"></script>
 </body>
 </html>

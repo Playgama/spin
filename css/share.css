@@ -66,6 +66,11 @@ body {
   display: none;
 }
 
+/* Play Game leads, set apart from the post and the sharing buttons under it. */
+.play {
+  margin-bottom: var(--space-16);
+}
+
 .post {
   margin-bottom: var(--space-8);
   padding: var(--space-16);
