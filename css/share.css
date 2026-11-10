@@ -40,6 +40,15 @@ body {
   height: 0;
 }
 
+/* The cover, the prize and the title: one link to the game. */
+.game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
 .cover {
   margin-top: var(--space-16);
   object-fit: cover;
@@ -55,24 +64,25 @@ body {
 }
 
 .ready {
-  display: flex;
-  flex-direction: column;
+  /* Two buttons a row, the same gap across and down; the post, Play Game and the hint take a whole row. */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-8);
   width: 100%;
   margin-top: var(--space-16);
+}
+
+.post,
+.play,
+.hint {
+  grid-column: 1 / -1;
 }
 
 .ready[hidden] {
   display: none;
 }
 
-/* Play Game leads, set apart from the post and the sharing buttons under it. */
-.play {
-  margin-bottom: var(--space-16);
-}
-
 .post {
-  margin-bottom: var(--space-8);
   padding: var(--space-16);
   border-radius: var(--radius-24);
   background: var(--color-white);

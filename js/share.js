@@ -28,6 +28,7 @@ async function start() {
   $('whom').textContent = game.title;
   $('post').textContent = post;
   $('play').href = link;
+  $('game').href = link;
   $('ready').hidden = false;
 
   // LinkedIn fills in nothing but the link, so the text goes to the clipboard on the way there.
@@ -36,6 +37,7 @@ async function start() {
     navigator.clipboard?.writeText(post).catch(() => {});
   });
   $('x').href = `https://x.com/intent/post?${new URLSearchParams({ text: post })}`;
+  $('threads').href = `https://www.threads.com/intent/post?${new URLSearchParams({ text: post })}`;
   $('copy').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(post);
